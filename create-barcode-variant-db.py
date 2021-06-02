@@ -6,15 +6,24 @@ import warnings
 cigar_identifiers=["M","I","D","N","S",'H',"P","=","X","B"]
 
 
-samfile = pysam.AlignmentFile("collapsed.bam", "rb")
+import argparse
+
+# required arg
+
+parser = argparse.ArgumentParser()
+   
+parser.add_argument('--bam_input', required=True)
+args = parser.parse_args()
+
+
+
+samfile = pysam.AlignmentFile(args.bam_input, "rb")
 for read in samfile.fetch():
 	read_cigar=[]
-	# if read.qname != "TACTCAACTTGTTGTCTGTAAGCC":
-	# 	continue
 	if read.is_supplementary or read.is_unmapped:
 		continue
 	if read.get_tag("NM") == 0:
-		print("\t".join([read.qname,"WT",read.reference_name,"0","0","PASS"]))
+		print("\t".join([read.reference_name + ":" + str(read.reference_start) + "-" + read.seq[0:3] + read.seq[-3::],read.qname,"WT",read.reference_name,"0","0","PASS"]))
 		continue
 	for cigar_pair in read.cigartuples:
 		read_cigar.append(cigar_identifiers[cigar_pair[0]] * cigar_pair[1])
@@ -48,7 +57,7 @@ for read in samfile.fetch():
 			if ins_check == True:
 				ins_check = False
 				#variantline=[read.qname,"ins",str(temp[2]-len(insertion) + 1),insertion[0],insertion]
-				variantline=[read.qname,"ins",read.reference_name, str(previous_temp[2]+1),previous_temp[3].upper(),previous_temp[3].upper()+insertion.upper()]
+				variantline=[read.reference_name + ":" + str(read.reference_start) + "-" + read.seq[0:3] + read.seq[-3::],read.qname,"ins",read.reference_name, str(previous_temp[2]+1),previous_temp[3].upper(),previous_temp[3].upper()+insertion.upper()]
 				if "H" in read_cigar:
 					print("\t".join(variantline+["SupMappingBarcode"]) )
 				else:
@@ -57,7 +66,7 @@ for read in samfile.fetch():
 			### deletion calling ###
 			if del_check == True:
 				del_check=False
-				variantline=[read.qname,"del",read.reference_name,str(previous_temp[2]+1),previous_temp[3].upper()+deletion.upper(),deletion[0].upper()]
+				variantline=[read.reference_name + ":" + str(read.reference_start) + "-" + read.seq[0:3] + read.seq[-3::],read.qname,"del",read.reference_name,str(previous_temp[2]+1),previous_temp[3].upper()+deletion.upper(),previous_temp[3].upper()]
 				if "H" in read_cigar:
 					print("\t".join(variantline+["SupMappingBarcode"]) )
 				else:
@@ -66,7 +75,7 @@ for read in samfile.fetch():
 			if temp[0] == temp[3]:
 				pass
 			else:
-				variantline=[read.qname,"snp",read.reference_name,str(temp[2] + 1),temp[3].upper(),temp[0]]	
+				variantline=[read.reference_name + ":" + str(read.reference_start) + "-" + read.seq[0:3] + read.seq[-3::],read.qname,"snp",read.reference_name,str(temp[2] + 1),temp[3].upper(),temp[0]]	
 				if "H" in read_cigar:
 					print("\t".join(variantline+["SupMappingBarcode"]) )
 				else:
