@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--bam_input', required=True)
 parser.add_argument("--var_db", required=True)
 parser.add_argument('--csv_out', required=True)
-parser.add_argument('--matrix_out', required=True)
+parser.add_argument('--mat_out', required=True)
 
 args = parser.parse_args()
 
@@ -33,6 +33,7 @@ args = parser.parse_args()
 db_file=args.var_db
 bam_file=args.bam_input
 output=args.csv_out
+matrix_output=args.mat_out
 
 
 
@@ -131,9 +132,9 @@ for pileupcolumn in samfile.pileup():
 samfile.close()
 
 x=pandas.DataFrame(mydf,columns =['barcode', "mutation","type"])
-if matrix_output == TRUE:
+if matrix_output == True:
     x.pivot_table(index=['barcode'], columns='mutation',values='type').to_csv(output,sep="\t")
 else:
-    x.to_csv(output,)
+    x.to_csv(output,sep="\t", index=False)
 print("done xd")
 
