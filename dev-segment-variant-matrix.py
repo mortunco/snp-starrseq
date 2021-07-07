@@ -48,23 +48,25 @@ mutation_dict={} ### keeps all alleles of same position mutations
 mutation_position=[] ### keeps positions (mutations) to be used by pile up ###
 mutation_list=[] ### keeps tracks of mutations so that we dont have duplicates of same mutations from different barcodes 
 with open(db_file, 'r') as file_in:
+    ### temp example ['ATGTGTAAAATATAAACAAAACAT', 'chr6:109326943-ATGCAT', 'ATGTTTTGTTTATATTTTACACAT', 'snp', 'chr6', '109326945', 'C', 'G', 'PASS']
     for line in file_in:
         temp=line.rstrip("\n").split("\t")
-        if temp[2] != "snp":
-            continue
         #print(temp)
+        if temp[3] != "snp":
+            continue
         if ";".join(temp[3:5]) not in mutation_dict:
-            mutation_dict[";".join(temp[3:5])] = [temp[5]+";"+temp[6]]
+            mutation_dict[";".join(temp[4:6])] = [temp[6]+";"+temp[7]]
         elif ";".join(temp[3:7]) in mutation_list:
             continue
         else:
-            mutation_dict[";".join(temp[3:5])].append(temp[5]+";"+temp[6])
-        mutation_position.append(";".join(temp[3:5]))
-        mutation_list.append(";".join(temp[3:7]))
+            mutation_dict[";".join(temp[4:6])] = [temp[6]+";"+temp[7]]
+        mutation_position.append(";".join(temp[4:6]))
+        mutation_list.append(";".join(temp[4:8]))
 print("Done")
 
-
-#print(mutation_dict)
+print(mutation_dict)
+print(mutation_list)
+quit()
 #{'chrX;66765158': ['TGCAGCAGCA;T', 'T;TGCA', 'TGCAGCA;T', 'TGCAGCAGCAGCA;T', 'T;TGCAGCA', 'T;TGCAGCAGCA', 'TGCA;T', 'TGCAGCAGCAGCAGCAGCAGCA;T', 'TGCAGCAGCAGCAGCAGCAGCAGCA;T', 'T;TGCAGCAGCAGCA']
 blacklist_mutations=[]
 print("Filtering Blacklist")
@@ -130,9 +132,9 @@ with open(target_region, 'r') as file_in:
         segment_no+=1                
         samfile.close()
 
-x=pandas.DataFrame(mydf,columns =['barcode', "mutation","type"])
+x=pandas.DataFrame(mydf,columns =['fragment_name', "mutation","type"])
 if matrix_output == True:
-    x.pivot_table(index=['barcode'], columns='mutation',values='type').to_csv(output,sep="\t")
+    x.pivot_table(index=['fragment_name'], columns='mutation',values='type').to_csv(output,sep="\t")
 else:
     x.to_csv(output,sep="\t", index=False)
 print("done xd")
