@@ -82,7 +82,7 @@ rule label_reads:
 		"""
 
 
-rule gather_trimquality_reads:
+rule gather_reads:
 	input:
 		a="analysis/cons.longshort.{direction}.fastq",
 		b="analysis/cons.shortlong.{direction}.fastq"
@@ -110,7 +110,7 @@ rule match_reads:
 		python code/snp-starrseq/read_id_matcher.py --f {input.r1} --r {input.r2} --p analysis/match-reads/
 		"""
 
-rule collapse_fragments:
+rule prep_collapse_fragments:
 	input:
 		"analysis/match-reads/clustered.interleaved.fastq"
 	output:
@@ -123,7 +123,7 @@ rule collapse_fragments:
 		reformat.sh -Xmx100g in1={input} out1={output.clust_r1} out2={output.clust_r2} 
 		"""
 
-rule post_collapse_trim:
+rule pre_collapse_trim:
 	input:
 		clust_r1="analysis/collapsed/clustered.r1.fastq",
 		clust_r2="analysis/collapsed/clustered.r2.fastq"
@@ -137,7 +137,7 @@ rule post_collapse_trim:
 		"""
 
 
-rule collapse_fragments_prep:
+rule collapse_fragments:
 	input:
 		trim_r1="analysis/collapsed/trimmed.clustered.r1.fastq",
 		trim_r2="analysis/collapsed/trimmed.clustered.r2.fastq",
@@ -150,7 +150,7 @@ rule collapse_fragments_prep:
 		bbmerge.sh -Xmx100G ecco=t merge=t in1={input.trim_r1} in2={input.trim_r2} out={output.collapsed} 
 		"""
 
-rule mapping_collapsed_ref:
+rule map_collapsed_to_ref:
 	input: 
 		"analysis/collapsed/collapsed-fragments.fastq"
 	output:
@@ -203,7 +203,6 @@ rule mrna_quantification_startpos:
 		samtools sort -@10 -m10G {output.bam} > {output.sortedbam}
 		samtools index {output.sortedbam}
 		"""
-
 		
 
 rule mrna_quantification_barcode:

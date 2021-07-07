@@ -45,7 +45,7 @@ while True:
   read_counter+=1
   barcode= forward_seq[0:12] + rev_compl(reverse_seq[0:12])
   #print(barcode)
-  cid=forward_readname.lstrip("@").rstrip().split(" ")[0] ### Forward term is related to merged files. Not longshort or short long
+  cid=forward_readname.lstrip("@").rstrip().split("\t")[0] ### Forward term is related to merged files. Not longshort or short long. ALSO, split should be space if there merged fastqs are piped in to seqtk
   #print([cid,barcode])
   if barcode not in barcode_to_cid:
     barcode_to_cid[barcode]=[cid]
