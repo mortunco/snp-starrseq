@@ -1,0 +1,26 @@
+dna_samples:
+  longshort:
+    r1:
+      - "raw-data/small-realdata/sample.longshort.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.longshort.r2.fastq.gz"
+  shortlong:
+    r1:
+      - "raw-data/small-realdata/sample.shortlong.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.shortlong.r2.fastq.gz"
+
+capture_bed:
+  "/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed"
+        
+mrna_samples:
+  lib:
+    r1:
+      - "raw-data/small-realdata/sample.lib.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.lib.r2.fastq.gz"
+  "481":
+    r1:
+      - "raw-data/small-realdata/sample.481.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.481.r2.fastq.gz"  
