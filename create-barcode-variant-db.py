@@ -16,7 +16,7 @@ parser.add_argument('--bam_input', required=True)
 args = parser.parse_args()
 
 
-
+print("\t".join(["barcode","start_aln_UMI","fragment_name","type","chr","pos","ref","alt","PASS"]))
 samfile = pysam.AlignmentFile(args.bam_input, "rb")
 for read in samfile.fetch():
 	read_cigar=[]
