@@ -16,8 +16,6 @@ def get_mrna_r2(wildcards):
 rule all:
 	input:
 		["analysis/collapsed/barcode-allele.tsv",
-		"analysis/mrna/barcodecounts.lib.txt",
-		"analysis/mrna/barcodecounts.481.txt",
 		"analysis/mrna/startposcounts.lib.txt",
 		"analysis/mrna/startposcounts.481.txt"]
 
@@ -204,18 +202,3 @@ rule mrna_quantification_startpos:
 		samtools index {output.sortedbam}
 		"""
 		
-
-rule mrna_quantification_barcode:
-	input:
-		r1=get_mrna_r1,
-		r2=get_mrna_r2,
-	output:
-		"analysis/mrna/barcodecounts.{mrna_sample}.txt"
-	conda:
-		"env/env.mapping.yaml"
-	shell:
-		"""
-		paste -d "\t"  \
-		<(zcat {input.r1} | paste -d "\t" - - - - ) \
-		<(zcat {input.r2} | paste -d "\t" - - - - )  | cut -f  1,2,6 | awk '{{print substr($2,0,12) substr($3,0,12)}}' | sort | uniq -c | awk '{{print $2,$1}}' | sort -k2,2n  > {output}
-		"""
