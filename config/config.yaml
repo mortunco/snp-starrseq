@@ -1,4 +1,9 @@
-dna_samples:
+run_name:
+  "small-example"
+
+bwa_ref:
+  "~/tools/bwa_hg19_index/hg19.fa"
+asym_samples:
   longshort:
     r1:
       - "raw-data/small-realdata/sample.longshort.r1.fastq.gz"
@@ -12,8 +17,11 @@ dna_samples:
 
 capture_bed:
   "/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed"
-        
-mrna_samples:
+
+longread_samples:
+  "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/raw-data/small-realdata/longread.bam"
+
+symmetric_samples:
   lib:
     r1:
       - "raw-data/small-realdata/sample.lib.r1.fastq.gz"

@@ -64,9 +64,7 @@ with open(db_file, 'r') as file_in:
         mutation_list.append(";".join(temp[4:8]))
 print("Done")
 
-print(mutation_dict)
-print(mutation_list)
-quit()
+
 #{'chrX;66765158': ['TGCAGCAGCA;T', 'T;TGCA', 'TGCAGCA;T', 'TGCAGCAGCAGCA;T', 'T;TGCAGCA', 'T;TGCAGCAGCA', 'TGCA;T', 'TGCAGCAGCAGCAGCAGCAGCA;T', 'TGCAGCAGCAGCAGCAGCAGCAGCA;T', 'T;TGCAGCAGCAGCA']
 blacklist_mutations=[]
 print("Filtering Blacklist")
