@@ -1,21 +1,19 @@
 def get_replicates(wildcards):
-	#print(expand("raw-data/{x}",x=config["samples"][wildcards.sample_name][wildcards.direction] ))
 	return(expand("{x}",x=config["asym_samples"][wildcards.sample_name][wildcards.direction] ))
 def get_mrna_r1(wildcards):
-	#print(expand("raw-data/{x}",x=config["samples"][wildcards.sample_name][wildcards.direction] ))
 	return(expand("{x}",x=config["symmetric_samples"][wildcards.mrna_sample]["r1"] ))
 def get_mrna_r2(wildcards):
-	#print(expand("raw-data/{x}",x=config["samples"][wildcards.sample_name][wildcards.direction] ))
 	return(expand("{x}",x=config["symmetric_samples"][wildcards.mrna_sample]["r2"] ))
 
 def genereate_result():
 	results=[]
 	run_name=config["run_name"]
-	for i in list(config["symmetric_samples"].keys()):
-		results.append("analysis/{}/4-symmetric-barcode-quantification/startposcounts.{}.txt".format(run_name,i))
+	if "symmetric_samples" in config:
+		for i in list(config["symmetric_samples"].keys()):
+			results.append("analysis/{}/4-symmetric-barcode-quantification/startposcounts.{}.txt".format(run_name,i))
 	if config["longread_samples"] != "" and "longread_samples" in config:
-		results.append("analysis/{}/5-longread/longread-counts.txt".format(run_name,i))
-	results.append("analysis/{}/3-generate-fragment-lib/barcode-allele.tsv".format(run_name,i))
+		results.append("analysis/{}/5-longread/longread-counts.txt".format(run_name))
+	results.append("analysis/{}/3-generate-fragment-lib/barcode-allele.tsv".format(run_name))
 	return results
 # rule all:
 # 	input:
@@ -53,10 +51,13 @@ rule calib_cluster:
 	output:
 		"analysis/{run_name}/1-cluster-consensus/{sample_name}.cluster"
 	params:
-		"-e 1 -k 5 -m 6 -l1 3 -l2 3 -t 2 -c 4 --no-sort --silent"
+		config["calib_params"]
+		#"-e 1 -k 5 -m 6 -l1 3 -l2 3 -t 2 -c 4 --no-sort --silent"
+	log: 
+		"logs/{run_name}/1-calib-cluster.{sample_name}.log"
 	shell:
 		"""
-		calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params}
+		calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params} 2> {log}
 		"""
 
 rule calib_cons:
@@ -69,18 +70,18 @@ rule calib_cons:
 		r2_cons_tmp=temp("analysis/{run_name}/1-cluster-consensus/constemp.{sample_name}.r2.fastq"),
 		r1_cons_msa_tmp=temp("analysis/{run_name}/1-cluster-consensus/constemp.{sample_name}.r1.msa"),
 		r2_cons_msa_tmp=temp("analysis/{run_name}/1-cluster-consensus/constemp.{sample_name}.r2.msa")
+	log: 
+		"logs/{run_name}/2-calib-cons.{sample_name}.log"
 	shell:
 		"""
-		calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster}
+		calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
 		"""
 
 rule label_reads:
 	input:
 		r1="analysis/{run_name}/1-cluster-consensus/constemp.{sample_name}.{direction}.fastq",
-		#r2="analysis/constemp.{sample_name}.r2.fastq"
 	output:
 		r1="analysis/{run_name}/1-cluster-consensus/cons.{sample_name}.{direction}.fastq",
-		#r2="analysis/cons.{sample_name}.r2.fastq"
 	shell:
 		"""
 		cat {input.r1}  | awk 'BEGIN {{OFS="\t"}} {{if(NR % 4 == 1) {{print $1_\"{wildcards.sample_name}\",$2;}} else print $0 }};' > {output.r1}
@@ -91,8 +92,6 @@ rule gather_reads:
 	input:
 		a="analysis/{run_name}/1-cluster-consensus/cons.longshort.{direction}.fastq",
 		b="analysis/{run_name}/1-cluster-consensus/cons.shortlong.{direction}.fastq"
-		#expand("analysis/cons.{sample_name}.{direction}.fastq", sample={wildcards.sample_name},direction={wildcards.direction})
-		#r1=lambda wildcards: ["analysis/cons.{1}.r1.fastq".format(wildcards.sample_name)]
 	output:
 		r1="analysis/{run_name}/1-cluster-consensus/merged.{direction}.fastq"
 	shell:
@@ -123,6 +122,8 @@ rule prep_collapse_fragments:
 		clust_r2=temp("analysis/{run_name}/3-generate-fragment-lib/clustered.r2.fastq"),
 	conda: 
 		"env/env.collapse.yaml"
+	log: 
+		"logs/{run_name}/3-reformat.log"
 	shell:
 		"""
 		reformat.sh -Xmx100g in1={input} out1={output.clust_r1} out2={output.clust_r2} 
@@ -147,12 +148,14 @@ rule collapse_fragments:
 		trim_r1="analysis/{run_name}/3-generate-fragment-lib/trimmed.clustered.r1.fastq",
 		trim_r2="analysis/{run_name}/3-generate-fragment-lib/trimmed.clustered.r2.fastq",
 	output:
-		collapsed="analysis/{run_name}/3-generate-fragment-lib/collapsed-fragments.fastq"
+		collapsed=temp("analysis/{run_name}/3-generate-fragment-lib/collapsed-fragments.fastq")
 	conda: 
 		"env/env.collapse.yaml"
+	log: 
+		"logs/{run_name}/3-bbmerge.log"
 	shell:
 		"""
-		bbmerge.sh -Xmx100G ecco=t merge=t in1={input.trim_r1} in2={input.trim_r2} out={output.collapsed} 
+		bbmerge.sh -Xmx100G ecco=t merge=t in1={input.trim_r1} in2={input.trim_r2} out={output.collapsed} 2>{log}
 		"""
 
 rule map_collapsed_to_ref:
@@ -162,11 +165,13 @@ rule map_collapsed_to_ref:
 		"analysis/{run_name}/3-generate-fragment-lib/collapsed-fragments.bam"
 	conda:
 		"env/env.mapping.yaml"
+	log: 
+		"logs/{run_name}/3-map-fragments.log"
 	params:
 		config["bwa_ref"]
 	shell:
 		"""
-		bwa mem -t 10 {params} {input} | samtools view -Sb | samtools sort > {output} && samtools index {output}
+		bwa mem -t 10 {params} {input} | samtools view -Sb | samtools sort > {output} && samtools index {output} 2> {log}
 		"""
 
 rule create_variant_table:
@@ -191,9 +196,11 @@ rule create_mutation_database:
 		"env/env.variant-db.yaml"
 	params:
 		bed=config["capture_bed"]
+	log: 
+		"logs/{run_name}/3-mutation-database.log"
 	shell:
 		"""
-		python code/snp-starrseq/dev-segment-variant-matrix.py --bam_input {input.bam} --var_db {input.variant_table} --csv_out {output} --mat_out False --bed_file {params.bed}
+		python code/snp-starrseq/dev-segment-variant-matrix.py --bam_input {input.bam} --var_db {input.variant_table} --csv_out {output} --mat_out False --bed_file {params.bed} 2>{log}
 		"""
 rule mrna_quantification_startpos:
 	input:
@@ -208,7 +215,7 @@ rule mrna_quantification_startpos:
 	shell:
 		"""
 		bwa mem -t16 {params} {input.r1} {input.r2} | samtools view -Sb > {output.bam}
-		samtools view -f2 -F2304 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - | cut -f 1,2 | sort -T . --parallel=16 | uniq -c | awk '{{print $1,$2,$3}}' > {output.countx}
+		samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - | cut -f 1,2 | sort -T . --parallel=16 | uniq -c | awk '{{print $1,$2,$3}}' > {output.countx}
 		samtools sort -@10 -m10G {output.bam} > {output.sortedbam}
 		samtools index {output.sortedbam}
 		"""
@@ -221,5 +228,5 @@ rule longread_quantification_startpos:
 		"analysis/{run_name}/5-longread/longread-counts.txt"
 	shell:
 		"""
-		samtools view -q10 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1,2 | sort | uniq -c  | awk '{{print $1,$2,$3}}' > {output}
+		samtools view -q2 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1,2 | sort | uniq -c  | awk '{{print $1,$2,$3}}' > {output}
 		"""
