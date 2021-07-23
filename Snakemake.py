@@ -105,7 +105,8 @@ rule match_reads:
 		r2="analysis/{run_name}/1-cluster-consensus/merged.r2.fastq"
 	output:
 		orphan="analysis/{run_name}/2-match-reads/orphan.fastq",
-		clustered="analysis/{run_name}/2-match-reads/clustered.interleaved.fastq",
+		clustered_r1="analysis/{run_name}/2-match-reads/clustered.r1.fastq",
+		clustered_r2="analysis/{run_name}/2-match-reads/clustered.r2.fastq",
 		problematic_samesame="analysis/{run_name}/2-match-reads/problematic_samesame.interleaved.fastq",
 		problematic_multiple="analysis/{run_name}/2-match-reads/problematic_multiple.interleaved.fastq",
 		master_file="analysis/{run_name}/2-match-reads/master-barcode-cid.txt"
@@ -114,25 +115,10 @@ rule match_reads:
 		python code/snp-starrseq/read_id_matcher.py --f {input.r1} --r {input.r2} --p analysis/{wildcards.run_name}/2-match-reads/
 		"""
 
-rule prep_collapse_fragments:
-	input:
-		"analysis/{run_name}/2-match-reads/clustered.interleaved.fastq"
-	output:
-		clust_r1=temp("analysis/{run_name}/3-generate-fragment-lib/clustered.r1.fastq"),
-		clust_r2=temp("analysis/{run_name}/3-generate-fragment-lib/clustered.r2.fastq"),
-	conda: 
-		"env/env.collapse.yaml"
-	log: 
-		"logs/{run_name}/3-reformat.log"
-	shell:
-		"""
-		reformat.sh -Xmx100g in1={input} out1={output.clust_r1} out2={output.clust_r2} 
-		"""
-
 rule pre_collapse_trim:
 	input:
-		clust_r1="analysis/{run_name}/3-generate-fragment-lib/clustered.r1.fastq",
-		clust_r2="analysis/{run_name}/3-generate-fragment-lib/clustered.r2.fastq"
+		clust_r1="analysis/{run_name}/2-match-reads/clustered.r1.fastq",
+		clust_r2="analysis/{run_name}/2-match-reads/clustered.r2.fastq"
 	output:
 		trim_r1="analysis/{run_name}/3-generate-fragment-lib/trimmed.clustered.r1.fastq",
 		trim_r2="analysis/{run_name}/3-generate-fragment-lib/trimmed.clustered.r2.fastq",
