@@ -1,8 +1,9 @@
 run_name:
   "small-example"
-
 bwa_ref:
   "~/tools/bwa_hg19_index/hg19.fa"
+calib_params:
+        "-e 1 -k 5 -m 6 -l1 3 -l2 3 -t 2 -c 4 --no-sort --silent"
 asym_samples:
   longshort:
     r1:
