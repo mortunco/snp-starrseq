@@ -15,21 +15,17 @@ def genereate_result():
 		results.append("analysis/{}/5-longread/longread-counts.txt".format(run_name))
 	results.append("analysis/{}/3-generate-fragment-lib/barcode-allele.tsv".format(run_name))
 	return results
-# rule all:
-# 	input:
-# 		["analysis/XXX/3-generate-fragment-lib/barcode-allele.tsv",
-# 		"analysis/XXX/4-symmetric-barcode-quantification/startposcounts.lib.txt",
-# 		"analysis/XXX/4-symmetric-barcode-quantification/startposcounts.481.txt",
-# 		"analysis/XXX/5-longread/longread-counts.txt"]
 
 rule all:
 	input: genereate_result()
-		
+	
 rule prep_merge_replicates:
 	input:
 		get_replicates
 	output:
 		temp("analysis/{run_name}/1-cluster-consensus/{sample_name}.{direction}.fastq")
+	conda:
+		"env/env.seqtk.yaml"
 	shell:
 		"""
 		zcat {input} > {output}
@@ -39,6 +35,9 @@ rule trim_for_calib:
 		"analysis/{run_name}/1-cluster-consensus/{sample_name}.{direction}.fastq"
 	output:
 		temp("analysis/{run_name}/1-cluster-consensus/trimmed.{sample_name}.{direction}.fastq")
+
+	conda:
+		"env/env.seqtk.yaml"
 	shell:
 		"""
 		seqtk trimfq -L 75 {input} > {output}
@@ -52,12 +51,11 @@ rule calib_cluster:
 		"analysis/{run_name}/1-cluster-consensus/{sample_name}.cluster"
 	params:
 		config["calib_params"]
-		#"-e 1 -k 5 -m 6 -l1 3 -l2 3 -t 2 -c 4 --no-sort --silent"
 	log: 
 		"logs/{run_name}/1-calib-cluster.{sample_name}.log"
 	shell:
 		"""
-		calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params} 2> {log}
+		./master-calib/calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params} 2> {log}
 		"""
 
 rule calib_cons:
@@ -74,7 +72,7 @@ rule calib_cons:
 		"logs/{run_name}/2-calib-cons.{sample_name}.log"
 	shell:
 		"""
-		calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
+		./master-calib/calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
 		"""
 
 rule label_reads:
@@ -122,6 +120,8 @@ rule pre_collapse_trim:
 	output:
 		trim_r1="analysis/{run_name}/3-generate-fragment-lib/trimmed.clustered.r1.fastq",
 		trim_r2="analysis/{run_name}/3-generate-fragment-lib/trimmed.clustered.r2.fastq",
+	conda:
+		"env/env.seqtk.yaml"
 	shell:
 		"""
 			seqtk trimfq -q 0.05 {input.clust_r1} > {output.trim_r1}
@@ -196,6 +196,8 @@ rule mrna_quantification_startpos:
 		countx="analysis/{run_name}/4-symmetric-barcode-quantification/startposcounts.{mrna_sample}.txt",
 		bam="analysis/{run_name}/4-symmetric-barcode-quantification/{mrna_sample}.bam",
 		sortedbam="analysis/{run_name}/4-symmetric-barcode-quantification/{mrna_sample}.sorted.bam"
+	conda:
+		"env/env.mapping.yaml"	
 	params:
 		config["bwa_ref"]
 	shell:
@@ -212,6 +214,8 @@ rule longread_quantification_startpos:
 		config["longread_samples"]
 	output:
 		"analysis/{run_name}/5-longread/longread-counts.txt"
+	conda:
+		"env/env.mapping.yaml"	
 	shell:
 		"""
 		samtools view -q2 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1,2 | sort | uniq -c  | awk '{{print $1,$2,$3}}' > {output}
