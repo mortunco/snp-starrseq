@@ -1,0 +1,35 @@
+run_name:
+  "small-example"
+bwa_ref:
+  "~/tools/bwa_hg19_index/hg19.fa"
+calib_params:
+        "-e 1 -k 5 -m 6 -l1 3 -l2 3 -t 2 -c 4 --no-sort --silent"
+asym_samples:
+  longshort:
+    r1:
+      - "raw-data/small-realdata/sample.longshort.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.longshort.r2.fastq.gz"
+  shortlong:
+    r1:
+      - "raw-data/small-realdata/sample.shortlong.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.shortlong.r2.fastq.gz"
+
+capture_bed:
+  "/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed"
+
+longread_samples:
+  "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/raw-data/small-realdata/longread.bam"
+
+symmetric_samples:
+  lib:
+    r1:
+      - "raw-data/small-realdata/sample.lib.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.lib.r2.fastq.gz"
+  "481":
+    r1:
+      - "raw-data/small-realdata/sample.481.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.481.r2.fastq.gz"  
