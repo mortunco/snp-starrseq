@@ -18,7 +18,7 @@ def genereate_result():
 
 rule all:
 	input: genereate_result()
-	
+
 rule prep_merge_replicates:
 	input:
 		get_replicates
@@ -55,7 +55,7 @@ rule calib_cluster:
 		"logs/{run_name}/1-calib-cluster.{sample_name}.log"
 	shell:
 		"""
-		./master-calib/calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params} 2> {log}
+		./code/calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params} 2> {log}
 		"""
 
 rule calib_cons:
@@ -72,7 +72,7 @@ rule calib_cons:
 		"logs/{run_name}/2-calib-cons.{sample_name}.log"
 	shell:
 		"""
-		./master-calib/calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
+		./code/calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
 		"""
 
 rule label_reads:
