@@ -1,4 +1,9 @@
-## 1. Installation
+# Table of contents
+1. [Installation](#Installation)
+2. [Running the Pipeline](#running-pamir)
+2. [Outputs](#Outputs)
+
+## Installation
 
 ### create a project directory and its sub-structures.
 ```
@@ -85,10 +90,9 @@ Calib's paramters arguments:
 ### Create a new environment for snakemake. You can skip this step if you have one.
 ```
 conda create -c bioconda -n snakemake snakemake_env
-
 ```
 
-## 2. Running the pipeline
+## Running Pamir
 ### Dry run to test & Run the small test data analysis 
 ```
 conda activate snakemake_env 
@@ -100,13 +104,14 @@ snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfil
 ## Outputs
 Our basic file structure is as follows. There are 4 main steps;
 - In step 1, we cluster and generate consensus sequences from asymmetric reads.
-- In step 2, we match long mates of the two asymmeric runs using 24 bp barcodes. (5' ~ 3bp UMI - 9 bp Fragment Sequence - ... - 9 bp Fragment Sequence - 3bp UMI ~ 3')
+- In step 2, we match long mates of the two asymmeric runs using 24 bp barcodes. 
+- - (5' ~ 3bp UMI - 9 bp Fragment Sequence - ... - 9 bp Fragment Sequence - 3bp UMI ~ 3')
 - In step 3, we collapsed matched long asymmetric reads and retreive enhancer fragments.
 - In step 4, we quantify barcode counts from symmterical starrseq data. (optional)
 - In step 5, unique fragments library can also be retreived from long-read sequences (Pacbio?).
 
 ```
-(base) [tmorova@linuxsrv006 test]$ tree analysis/
+$ tree analysis/
 analysis/
 └── small-example
     ├── 1-cluster-consensus
