@@ -188,6 +188,6 @@ analysis/
 Lorem ipsum
 ## Publication
 TBD
-##Contant and Support
+## Contant and Support
 Lorem Ipsum
 
