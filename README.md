@@ -1,8 +1,11 @@
 # Table of contents
 1. [Installation](#installation)
 2. [Running Example Pipeline](#running-pamir-example)
-3. [Running pipiline for your project](#asd)
-4. [Outputs](#outputs)
+3. [Configuration](#configuration)
+4. [Output File Definitions](#output-file-definitions)
+5. [Visualisation](#visualisation)
+6. [Publications](#publication)
+7. [Contant and Support](#contant-and-support)
 
 ## Installation
 
@@ -121,7 +124,7 @@ Our pipeline needs a config file for execution. It is recommended to create a se
 | longread_samples   | Path to longread bam file.                                    |
 |                    | Must be mapping to same the reference genome as other samples |
 
-## Outputs
+## Output File Definitions
 Our basic file structure is as follows. There are 4 main steps;
 - In step 1, we cluster and generate consensus sequences from asymmetric reads.
 - - longshort/shortlong.cluster --> Calib cluster output which contains cluster number and read information. 
@@ -181,5 +184,10 @@ analysis/
     └── 5-longread
         └── longread-counts.txt
 ```
-
+## Visualisation
+Lorem ipsum
+## Publication
+TBD
+##Contant and Support
+Lorem Ipsum
 
