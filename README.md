@@ -1,7 +1,8 @@
 # Table of contents
-1. [Installation](#Installation)
-2. [Running the Pipeline](#running-pamir)
-2. [Outputs](#Outputs)
+1. [Installation](#installation)
+2. [Running Example Pipeline](#running-pamir-example)
+3. [Running pipiline for your project](#asd)
+4. [Outputs](#outputs)
 
 ## Installation
 
@@ -92,7 +93,7 @@ Calib's paramters arguments:
 conda create -c bioconda -n snakemake snakemake_env
 ```
 
-## Running Pamir
+## Running Pamir Example
 ### Dry run to test & Run the small test data analysis 
 ```
 conda activate snakemake_env 
@@ -100,15 +101,46 @@ cd go/to/your/test
 snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfile code/snp-starrseq/config/config.small-example.yaml -p -n
 snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfile code/snp-starrseq/config/config.small-example.yaml -p
 ```
+## Configuration
+Our pipeline needs a config file for execution. It is recommended to create a separate config file for each analysis to have reproducibility. Following options were are in configuration file. Argument names with * are not optional, they are mandatory. Please see the config/config.yaml for example run.
+
+| Name               | Description                                                   |
+|--------------------|---------------------------------------------------------------|
+| run_name*           | name of the run                                               |
+| bwa_ref*            | Path to BWA index files                                       |
+| calib_params*       | Calib's clustering module parameters                          |
+| asym_samples*       | Path to asymmetric samples.                                   |
+|                    | Fastq files must be in zipped format.                         |
+|                    | In case of replicates, use "," to merge.                      |
+|                    | For example,                                                  |
+|                    | r1: ["a.r1.fastq","b.r2.fastq"]                               |
+|                    | r2: ["a.r2.fastq","b.r2.fastq"]                               |
+| capture_bed*        | STARRseq Capture Regions in BED format.                       |
+| symmetric _samples | Path to symmteric samples.                                    |
+|                    | Exteded options are same as asymmetric.                       |
+| longread_samples   | Path to longread bam file.                                    |
+|                    | Must be mapping to same the reference genome as other samples |
 
 ## Outputs
 Our basic file structure is as follows. There are 4 main steps;
 - In step 1, we cluster and generate consensus sequences from asymmetric reads.
+- - longshort/shortlong.cluster --> Calib cluster output which contains cluster number and read information. 
+- - conx.longshort/shortlong.rX.fastq --> Calib consensus output which contains consensus sequence of all clusters which =>2 members.
+- - merged.rX.fastq --> We merge longshort/shortlongs r1 and r2 in two separate files for `2-read-matching` step.
 - In step 2, we match long mates of the two asymmeric runs using 24 bp barcodes. 
 - - (5' ~ 3bp UMI - 9 bp Fragment Sequence - ... - 9 bp Fragment Sequence - 3bp UMI ~ 3')
+- - master-barcode-cid.txt --> Master table that contains information of each unique fragment. There are possible three outcomes, clustered means fragments are present in both (longshort/shortlong) runs. Orphan means fragment is found only in single run (one of longshort/shortlong). Problematic ones such as multiple and same same were cases that same barcodes was found by different fragments in the single run. In our benchmark this rate was <%1 therefore, we dump those reads to a file for further investigation.
 - In step 3, we collapsed matched long asymmetric reads and retreive enhancer fragments.
+- - trimmed.clustered.rX.fastq --> Bad quality sequences and N bases were trimmed from clustered reads (check previous section).
+- - collapsed-fragments.bam/fastq --> As a result of the collapsing process, this file contains sucessfully collapsed fragments reference genome alignment and reads. 
+- - barcode-variant-table.tsv --> This file contains all mismatches/indels on the collapsed fragments with respect to reference genome.
+- - barcode-allele.tsv --> From the previous file, we annotate each collapsed fragment whether they support alternative allele and WT allele. Only SNP events that are located in `capture_bed` bed file were considered.
 - In step 4, we quantify barcode counts from symmterical starrseq data. (optional)
+- - samplename[481/lib].bam --> For each symmetric sample, we initially map reads to the reference genome.
+- - samplename[481/lib].sorted.bam --> sorted by position.
+- - startposcounts.samplename[481/lib].txt --> for each file, using the alignment files we generate index (startpos:6bpUMI) for each read and quantify the occurance in the sample. These indexes should be concordant with the indexes from asymmetric section of the analysis.
 - In step 5, unique fragments library can also be retreived from long-read sequences (Pacbio?).
+- - longread-counts.txt --> For validation purposes, we sequenced our plasmid library with Pacbio CCS reads. Similar to symmetrical samples, we generate index for each alignment (which > mapq2 and not supplementary) and quantify the number of the occurances.
 
 ```
 $ tree analysis/
@@ -149,4 +181,5 @@ analysis/
     └── 5-longread
         └── longread-counts.txt
 ```
+
 
