@@ -51,9 +51,9 @@ with open(db_file, 'r') as file_in:
     ### temp example ['ATGTGTAAAATATAAACAAAACAT', 'chr6:109326943-ATGCAT', 'ATGTTTTGTTTATATTTTACACAT', 'snp', 'chr6', '109326945', 'C', 'G', 'PASS']
     for line in file_in:
         temp=line.rstrip("\n").split("\t")
-        barcode , index, fragment_name, event_type, event_chr, event_pos, event_ref, event_alt, temp_x = temp
+        index, fragment_name, event_type, event_chr, event_pos, event_ref, event_alt, temp_x = temp
 
-        if barcode not in barcode_index_dict:
+        if fragment_name not in barcode_index_dict:
             barcode_index_dict[fragment_name]=index
         if event_type != "snp" or event_alt == "N": ### I discarded all the indel events now  + REMOVES all N cases ###
             continue
