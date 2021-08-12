@@ -203,7 +203,7 @@ rule mrna_quantification_startpos:
 	shell:
 		"""
 		bwa mem -t16 {params} {input.r1} {input.r2} | samtools view -Sb > {output.bam}
-		samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - | cut -f 1,2 | sort -T . --parallel=16 | uniq -c | awk '{{print $1,$2,$3}}' > {output.countx}
+		samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - | cut -f 1 | sort -T . --parallel=16 | uniq -c | awk '{{print $1,$2}}' > {output.countx}
 		samtools sort -@10 -m10G {output.bam} > {output.sortedbam}
 		samtools index {output.sortedbam}
 		"""
@@ -218,5 +218,5 @@ rule longread_quantification_startpos:
 		"env/env.mapping.yaml"	
 	shell:
 		"""
-		samtools view -q2 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1,2 | sort | uniq -c  | awk '{{print $1,$2,$3}}' > {output}
+		samtools view -q2 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1 | sort -T . --parallel=16 | uniq -c  | awk '{{print $1,$2}}' > {output}
 		"""
