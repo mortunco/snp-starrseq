@@ -23,7 +23,7 @@ for read in samfile.fetch():
 	if read.is_supplementary or read.is_unmapped:
 		continue
 	if read.get_tag("NM") == 0:
-		print("\t".join(read.reference_name + ":" + str(read.reference_start+1) + "-" + read.seq[0:3] + read.seq[-3::],read.qname,"WT","NA" ,"NA","NA","NA","PASS"]))
+		print("\t".join([read.reference_name + ":" + str(read.reference_start+1) + "-" + read.seq[0:3] + read.seq[-3::],read.qname,"WT","NA" ,"NA","NA","NA","PASS"]))
 		continue
 	for cigar_pair in read.cigartuples:
 		read_cigar.append(cigar_identifiers[cigar_pair[0]] * cigar_pair[1])
