@@ -26,6 +26,7 @@ rule prep_merge_replicates:
 		temp("analysis/{run_name}/1-cluster-consensus/{sample_name}.{direction}.fastq")
 	conda:
 		"env/env.seqtk.yaml"
+	threads:1
 	shell:
 		"""
 		zcat {input} > {output}
@@ -35,9 +36,9 @@ rule trim_for_calib:
 		"analysis/{run_name}/1-cluster-consensus/{sample_name}.{direction}.fastq"
 	output:
 		temp("analysis/{run_name}/1-cluster-consensus/trimmed.{sample_name}.{direction}.fastq")
-
 	conda:
 		"env/env.seqtk.yaml"
+	threads:1
 	shell:
 		"""
 		seqtk trimfq -L 75 {input} > {output}
@@ -53,9 +54,10 @@ rule calib_cluster:
 		config["calib_params"]
 	log: 
 		"logs/{run_name}/1-calib-cluster.{sample_name}.log"
+	threads:4
 	shell:
 		"""
-		./code/calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params} 2> {log}
+		./code/calib/calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/{wildcards.sample_name}. {params} 2> {log}
 		"""
 
 rule calib_cons:
@@ -70,9 +72,10 @@ rule calib_cons:
 		r2_cons_msa_tmp=temp("analysis/{run_name}/1-cluster-consensus/constemp.{sample_name}.r2.msa")
 	log: 
 		"logs/{run_name}/2-calib-cons.{sample_name}.log"
+	threads: 4
 	shell:
 		"""
-		./code/calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
+		./code/calib/calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
 		"""
 
 rule label_reads:
@@ -80,6 +83,7 @@ rule label_reads:
 		r1="analysis/{run_name}/1-cluster-consensus/constemp.{sample_name}.{direction}.fastq",
 	output:
 		r1="analysis/{run_name}/1-cluster-consensus/cons.{sample_name}.{direction}.fastq",
+	threads:1
 	shell:
 		"""
 		cat {input.r1}  | awk 'BEGIN {{OFS="\t"}} {{if(NR % 4 == 1) {{print $1_\"{wildcards.sample_name}\",$2;}} else print $0 }};' > {output.r1}
@@ -92,6 +96,7 @@ rule gather_reads:
 		b="analysis/{run_name}/1-cluster-consensus/cons.shortlong.{direction}.fastq"
 	output:
 		r1="analysis/{run_name}/1-cluster-consensus/merged.{direction}.fastq"
+	threads:1
 	shell:
 		"""
 		cat {input.a} {input.b}  > {output.r1}
@@ -108,6 +113,7 @@ rule match_reads:
 		problematic_samesame="analysis/{run_name}/2-match-reads/problematic_samesame.interleaved.fastq",
 		problematic_multiple="analysis/{run_name}/2-match-reads/problematic_multiple.interleaved.fastq",
 		master_file="analysis/{run_name}/2-match-reads/master-barcode-cid.txt"
+	threads:1
 	shell:
 		"""
 		python code/snp-starrseq/read_id_matcher.py --f {input.r1} --r {input.r2} --p analysis/{wildcards.run_name}/2-match-reads/
@@ -122,6 +128,7 @@ rule pre_collapse_trim:
 		trim_r2="analysis/{run_name}/3-generate-fragment-lib/trimmed.clustered.r2.fastq",
 	conda:
 		"env/env.seqtk.yaml"
+	threads:1
 	shell:
 		"""
 			seqtk trimfq -q 0.05 {input.clust_r1} > {output.trim_r1}
@@ -139,6 +146,7 @@ rule collapse_fragments:
 		"env/env.collapse.yaml"
 	log: 
 		"logs/{run_name}/3-bbmerge.log"
+	threads:1
 	shell:
 		"""
 		bbmerge.sh -Xmx100G ecco=t merge=t in1={input.trim_r1} in2={input.trim_r2} out={output.collapsed} 2>{log}
@@ -155,9 +163,10 @@ rule map_collapsed_to_ref:
 		"logs/{run_name}/3-map-fragments.log"
 	params:
 		config["bwa_ref"]
+	threads:16
 	shell:
 		"""
-		bwa mem -t 10 {params} {input} | samtools view -Sb | samtools sort > {output} && samtools index {output} 2> {log}
+		bwa mem -t{threads} {params} {input} | samtools view -Sb | samtools sort -@{threads} -m10G> {output} && samtools index {output} 2> {log}
 		"""
 
 rule create_variant_table:
@@ -167,6 +176,7 @@ rule create_variant_table:
 		"analysis/{run_name}/3-generate-fragment-lib/barcode-variant-table.tsv"
 	conda:
 		"env/env.variant-db.yaml"
+	threads:1
 	shell:
 		"""
 		python code/snp-starrseq/create-barcode-variant-db.py --bam_input {input} > {output}
@@ -184,6 +194,7 @@ rule create_mutation_database:
 		bed=config["capture_bed"]
 	log: 
 		"logs/{run_name}/3-mutation-database.log"
+	threads:1
 	shell:
 		"""
 		python code/snp-starrseq/dev-segment-variant-matrix.py --bam_input {input.bam} --var_db {input.variant_table} --csv_out {output} --mat_out False --bed_file {params.bed} 2>{log}
@@ -200,11 +211,12 @@ rule mrna_quantification_startpos:
 		"env/env.mapping.yaml"	
 	params:
 		config["bwa_ref"]
+	threads:16
 	shell:
 		"""
-		bwa mem -t16 {params} {input.r1} {input.r2} | samtools view -Sb > {output.bam}
-		samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - | cut -f 1 | sort -T . --parallel=16 | uniq -c | awk '{{print $1,$2}}' > {output.countx}
-		samtools sort -@10 -m10G {output.bam} > {output.sortedbam}
+		bwa mem -t{threads} {params} {input.r1} {input.r2} | samtools view -Sb > {output.bam}
+		samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - | cut -f 1 | sort -T . --parallel={threads} | uniq -c | awk '{{print $1,$2}}' > {output.countx}
+		samtools sort -@{threads} -m10G {output.bam} > {output.sortedbam}
 		samtools index {output.sortedbam}
 		"""
 
@@ -216,7 +228,8 @@ rule longread_quantification_startpos:
 		"analysis/{run_name}/5-longread/longread-counts.txt"
 	conda:
 		"env/env.mapping.yaml"	
+	threads: 16
 	shell:
 		"""
-		samtools view -q2 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1 | sort -T . --parallel=16 | uniq -c  | awk '{{print $1,$2}}' > {output}
+		samtools view -q2 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1 | sort -T . --parallel={threads} | uniq -c  | awk '{{print $1,$2}}' > {output}
 		"""
