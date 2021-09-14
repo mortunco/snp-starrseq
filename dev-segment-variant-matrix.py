@@ -6,7 +6,7 @@
 
 import pysam
 import numpy
-import pandas
+import pandas as pa
 import argparse
 
 
@@ -78,7 +78,6 @@ for event_position in list(mutation_dict.keys()):
 #     mutation_dict.pop(i,None)
 #mutation_position = [i for i in mutation_position if i not in blacklist_mutations]
 mutation_position= list(mutation_dict.keys())
-print(mutation_dict["chr6;109326183"])
 print("Filtering Blacklist done")
 mydf=list()
 with open(target_region, 'r') as file_in:
@@ -90,23 +89,28 @@ with open(target_region, 'r') as file_in:
         segment=[capture_chr,capture_start,capture_end] # chr start end of bed
         print("Analysing Segment no {}      ".format(segment_no,"_".join(segment)))
         samfile = pysam.AlignmentFile(bam_file, "rb")
-        for pileupcolumn in samfile.pileup(segment[0], int(segment[1]),int(segment[2])):
+        for pileupcolumn in samfile.pileup(segment[0], int(segment[1]),int(segment[2])):        
+            pileupcolumn.set_min_base_quality(5) ### This sets minimum quality score of pileup. We had problems in past our variants are going way simply becasue the BASE quality was too low and mpileup discards it.
             if pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1) in mutation_position:#["chr10;104418948","chr10;104418946","chr10;104418945"]:     
                 for allele in mutation_dict[pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1)]: ### we are doing this because some events are multi alallic therefore i have to go through all of them.
                     #print ("\ncoverage at base %s = %s" % (pileupcolumn.pos, pileupcolumn.n))
                     for pileupread in pileupcolumn.pileups:
                         # dont delete this this is required for inspection if stuff goes bad
-                        # print("allele : {} | qname: {} | qpos : {} | pos : {} | indel : {} | is_del : {} | is_refskip : {} ".format(allele,pileupread.alignment.query_name,
-                        #        pileupread.query_position,
-                        #        pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1),
-                        #        pileupread.indel,
-                        #        pileupread.is_del,
-                        #        pileupread.is_refskip)
-                        #       )                        
+                        # print("querried allele : {} | qname: {} | read allele : {} |qpos : {} | pos : {} | indel : {} | is_del : {} | is_refskip : {} ".format(
+                        #     allele,
+                        #     pileupread.alignment.query_name,
+                        #     pileupread.alignment.query_sequence[pileupread.query_position],
+                        #     pileupread.query_position,
+                        #     pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1),
+                        #     pileupread.indel,
+                        #     pileupread.is_del,
+                        #     pileupread.is_refskip)
+                        #     )                        
                         if pileupread.indel != 0: 
                         ## Check if the mutation we are genotyping if indel, if this base is indel, then it directly supports indels.
                         ## I used this line in the original version that I also calculated the genotype of the indel. But that is complex. Therefore, its depracated.
                         ## I am commanding out below, because this would have added any read with indel to the support of SNPs. which is not correct
+                            #print(pileupread.alignment.query_name)
                             pass
                             #temp=[barcode_index_dict[pileupread.alignment.qname],pileupread.alignment.qname,pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1) + ";" + allele, 2]
                             #mydf.append(temp)
@@ -114,19 +118,21 @@ with open(target_region, 'r') as file_in:
                             if pileupread.query_position == None: 
                             ## This is the case, when indel starts but because its deletion the sequence is none in the read. Thefore, I am not discarding this case.
                                 pass #### 
-                            else:
+                            else: 
                                 ### If no indel, then it checks the first base, if mutation was indel checks if it matches witht he first reference. it should be same.
                                 if pileupread.alignment.query_sequence[pileupread.query_position] in allele.split(";")[0]:
+                                    #### 1 is WT ####
                                     temp=[barcode_index_dict[pileupread.alignment.qname],pileupread.alignment.qname,pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1) + ";" + allele,1]
                                     mydf.append(temp)
                                 else:
+                                    #### 2 is WT ####
                                     temp=[barcode_index_dict[pileupread.alignment.qname],pileupread.alignment.qname,pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1) + ";" + allele,2]
                                     #print("\t"+" ".join(temp))
                                     mydf.append(temp)
         segment_no+=1                
         samfile.close()
 
-x=pandas.DataFrame(mydf,columns =["start_aln_UMI",'fragment_name', "mutation","type"])
+x=pa.DataFrame(mydf,columns =["start_aln_UMI",'fragment_name', "mutation","type"])
 if matrix_output == True:
     x.pivot_table(index=['fragment_name'], columns='mutation',values='type').to_csv(output,sep="\t")
 else:
