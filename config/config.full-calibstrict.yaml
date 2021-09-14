@@ -1,0 +1,76 @@
+run_name:
+  "full-data-strict"
+bwa_ref:
+  "~/tools/bwa_hg19_index/hg19.fa"
+calib_params:
+  "-e 0 -k 5 -m 6 -l1 6 -l2 6 -t 2 -c 4 --no-sort --silent"
+asym_samples:
+  longshort:
+    r1:
+      ["raw-data/full-data/asym/miseq1_S1_L001_R1_001.fastq.gz"]
+    r2:
+      ["raw-data/full-data/asym/miseq1_S1_L001_R2_001.fastq.gz"]
+  shortlong:
+    r1:
+      - "raw-data/full-data/asym/miseq3_S1_L001_R1_001.fastq.gz"
+    r2:
+      - "raw-data/full-data/asym/miseq3_S1_L001_R2_001.fastq.gz"
+
+capture_bed:
+  "/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed"
+
+longread_samples:
+  "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/raw-data/full-data/longread.full.bam"
+
+symmetric_samples:
+  SNP_CL:
+    r1:
+    - "raw-data/full-data/sym/SNP_CL.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNP_CL.r2.fastq.gz"
+  SNPR1_24:
+    r1:
+    - "raw-data/full-data/sym/SNPR1_24.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR1_24.r2.fastq.gz"
+  SNPR1_48:
+    r1:
+    - "raw-data/full-data/sym/SNPR1_48.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR1_48.r2.fastq.gz"
+  SNPR1_72:
+    r1:
+    - "raw-data/full-data/sym/SNPR1_72.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR1_72.r2.fastq.gz"
+  SNPR2_24:
+    r1:
+    - "raw-data/full-data/sym/SNPR2_24.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR2_24.r2.fastq.gz"
+  SNPR2_48:
+    r1:
+    - "raw-data/full-data/sym/SNPR2_48.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR2_48.r2.fastq.gz"
+  SNPR2_72:
+    r1:
+    - "raw-data/full-data/sym/SNPR2_72.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR2_72.r2.fastq.gz"
+  SNPR3_24:
+    r1:
+    - "raw-data/full-data/sym/SNPR3_24.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR3_24.r2.fastq.gz"
+  SNPR3_48:
+    r1:
+    - "raw-data/full-data/sym/SNPR3_48.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR3_48.r2.fastq.gz"
+  SNPR3_72:
+    r1:
+    - "raw-data/full-data/sym/SNPR3_72.r1.fastq.gz"
+    r2:
+    - "raw-data/full-data/sym/SNPR3_72.r2.fastq.gz"
+
