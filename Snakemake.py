@@ -219,7 +219,14 @@ rule mrna_quantification_startpos:
 		samtools sort -@{threads} -m10G {output.bam} > {output.sortedbam}
 		samtools index {output.sortedbam}
 		"""
-
+# rule NB
+# shell:
+# 	"""
+# 	python3 allele_specific_enhancer_activity.py \
+#     --dna=yi-results-new/startposcounts.SNP_CL.txt \
+#     --rna=yi-results-new/startposcounts.SNPR1_48.txt,yi-results-new/startposcounts.SNPR2_48.txt,yi-results-new/startposcounts.SNPR3_48.txt \
+#     --barcode_allele=yi-results-new/barcode-allele.tsv --output_prefix=48h 
+# 	"""
 
 rule longread_quantification_startpos:
 	input:
