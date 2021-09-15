@@ -8,7 +8,7 @@ def get_mrna_r2(wildcards):
 def genereate_result():
 	results=[]
 	run_name=config["run_name"]
-	if "symmetric_samples" in config:
+	if config["symmetric_samples"] != "":
 		for i in list(config["symmetric_samples"].keys()):
 			results.append("analysis/{}/4-symmetric-barcode-quantification/startposcounts.{}.txt".format(run_name,i))
 	if config["longread_samples"] != "" and "longread_samples" in config:
