@@ -60,12 +60,12 @@ reverse.close()
 #print(cid_to_readinfo["12longshort"])
 #print(cid_to_readinfo["39shortlong"])
 
-orphan=open(args.prefix+"/orphan.fastq","w")
-clustered_r1=open(args.prefix+"/clustered.r1.fastq","w")
-clustered_r2=open(args.prefix+"/clustered.r2.fastq","w")
-problematic_samesame=open(args.prefix+"/problematic_samesame.interleaved.fastq","w")
-problematic_multiple=open(args.prefix+"/problematic_multiple.interleaved.fastq","w")
-master_file=open(args.prefix+"/master-barcode-cid.txt","w")
+orphan=open(args.prefix+"orphan.fastq","w")
+clustered_r1=open(args.prefix+"clustered.r1.fastq","w")
+clustered_r2=open(args.prefix+"clustered.r2.fastq","w")
+problematic_samesame=open(args.prefix+"problematic_samesame.interleaved.fastq","w")
+problematic_multiple=open(args.prefix+"problematic_multiple.interleaved.fastq","w")
+master_file=open(args.prefix+"master-barcode-cid.txt","w")
 
 #print(barcode_to_cid)
 for barcode,clusters in barcode_to_cid.items():

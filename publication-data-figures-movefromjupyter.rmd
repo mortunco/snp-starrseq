@@ -1,0 +1,925 @@
+---
+title: "R Notebook"
+output: html_notebook
+editor_options:
+  chunk_output_type: console
+---
+### Density Plot
+```{r}
+### this section is to process the data for the firs time. I used fst file later on##
+#ibrary(tidyverse)
+# library(fst)
+
+# mylist=list.files("../analysis/publication-figures/",full.names = T,pattern = "total.")
+# maindf=list()
+# for (i in mylist){
+#     print(i)
+#     data.table::fread(i,sep = "\t",col.names = c("index","barcode","readname","rc","rs","re","rname","cc","cs","ce","x","y"),nThread = 16) %>% 
+#     as_tibble %>% mutate(sample=gsub(pattern = "total.",replacement = "",x = basename(i))) %>% unite(cindex,c("cc","cs","ce"),sep = ";") %>%
+#     select(sample,index,cindex) %>%
+#     group_by(sample,index) %>%
+#     summarize(count=n(), cindex=unique(cindex)) -> temp
+#     maindf[[i]]=temp
+# }
+# maindf=do.call(rbind.data.frame,maindf)
+
+# write.fst(maindf,"../analysis/publication-figures/main-table.fst")
+
+library(tidyverse)
+library(fst)
+maindf=fst::read.fst("../analysis/publication-figures/main-table.fst")
+capture=read.table("/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed",sep = "\t",stringsAsFactors = F,col.names =c("cc","cs","ce","x","n"))
+capture %>% unite(cindex,c("cc","cs","ce"),sep = ";") %>% separate(n,sep = "_",into = c("type","b")) %>% select(cindex,type) -> capture
+
+
+### capture density plot ###
+maindf %>% 
+    ungroup() %>%
+    filter(cindex != ".;-1;-1") %>% 
+    group_by(sample,cindex) %>% ## for sample count the fragments under the same capture region. 
+    summarise(capture_sum= sum(count)) %>%
+    ungroup %>% 
+    separate(sample, into = c("rep","time"),sep = "_") %>% ### split for rep and time 
+    left_join(.,capture,by = "cindex") %>% ### merge with cindex --> snp/neg/pos annotation
+    mutate(type=factor(type,levels = c("pos","snp","neg"))) %>%  ### reset the type levels ##
+    ungroup %>% 
+    group_by(time,cindex,type) %>% 
+    summarize(capture_sum= mean(capture_sum)) -> temp ### calculate the mean of all replicates 
+    
+
+options(repr.plot.width=8, repr.plot.height=6,repr.plot.res=96)
+ggplot(temp  ,aes(log2(capture_sum+1),group=time,color=time)) + 
+geom_density()+
+facet_wrap(type ~.,ncol = 1)+
+theme_bw()+
+theme(text = element_text(size = 18),legend.position = "top")+
+NULL +
+ggsave("../analysis/publication-figures/density-capture-region-coverage.pdf",height = 6,width = 8)
+```
+
+### PCA
+```{r}
+### ALL Samples PCA ###
+library(tidyverse)
+library(reshape2)
+library(tidyverse)
+library(fst)
+maindf=fst::read.fst("../analysis/publication-figures/main-table.fst")
+capture=read.table("/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed",sep = "\t",stringsAsFactors = F,col.names =c("cc","cs","ce","x","n"))
+capture %>% unite(cindex,c("cc","cs","ce"),sep = ";") %>% separate(n,sep = "_",into = c("type","b")) %>% select(cindex,type) -> capture
+
+maindf %>% 
+    ungroup() %>%
+    filter(cindex != ".;-1;-1" & sample != "SNP_CL") %>% 
+    group_by(sample,cindex) %>% ## for sample count the fragments under the same capture region. 
+    summarise(capture_sum= sum(count)) %>% 
+    acast(.,cindex ~ sample, value.var = "capture_sum") -> temp
+
+pca <- prcomp(t(log2(temp+1)))
+
+temp <- as.data.frame(pca$x)
+temp$sample=rownames(temp)
+
+head(temp)
+
+options(repr.plot.width=8, repr.plot.height=8,repr.plot.res=96)
+ggplot(temp %>% separate(sample, into = c("rep","time"),sep = "_",remove = F), aes(x = PC2,y = PC1,label=sample,color=time,shape=rep))+
+geom_point(size=5) +
+ggrepel::geom_text_repel(size=5) + 
+theme_bw()+
+theme(legend.position = "top",
+     text=element_text(size=))+ggsave("../analysis/publication-figures/PCA-capture-region-total-coverage.pdf",width = 8,height = 8)
+```
+
+### ASYYM - longshort-shortlong  - calib cluster stats
+```{r}
+
+### Asym Target Region Distribution ###
+library(tidyverse)
+mylist=list.files("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/1-cluster-consensus/",pattern = "cluster",full.names = T)
+mydf=list()
+for (i in mylist){
+    print(i)
+    data.table::fread(i,sep = "\t",col.names = c("cid","nid","rrow","r1n","r1s","r1q","r2n","r2s","r2q"),nThread = 16) %>% 
+    as_tibble %>% 
+    mutate(sample=gsub(pattern = ".cluster",replacement = "",x = basename(i))) %>% 
+    select(cid,nid,rrow,sample) -> temp    
+    mydf[[i]]=temp
+}
+mydf=do.call(rbind.data.frame,mydf)
+
+mydf %>% as_tibble %>% group_by(sample,cid) %>% count() -> temp
+
+### basic stats ###
+temp %>% ungroup %>% filter(sample =="longshort" & n > 1) %>% select(n) %>% apply(.,2,summary)
+temp %>% ungroup %>% filter(sample =="shortlong" & n > 1) %>% select(n) %>% apply(.,2,summary)
+
+options(repr.plot.width=8, repr.plot.height=4,repr.plot.res=96)
+ggplot(temp,aes(n,fill=sample)) + 
+ geom_histogram() + 
+ facet_wrap(sample ~ .,nrow = 3) + 
+ xlab("Reads Per Unique Cluster") + 
+ scale_y_continuous(labels = scales::comma,breaks = scales::pretty_breaks(n = 5)) + 
+ scale_x_continuous(trans = "log2",breaks=scales::breaks_log(n = 10,base = 2)) +
+ theme_bw()+
+ theme(legend.position = "top",text=element_text(size=18)) + 
+ NULL + ggsave("../analysis/publication-figures/asym-longshort-shortlong-cluster-coverage.pdf",width = 8,height = 4)
+
+options(repr.plot.width=8, repr.plot.height=4,repr.plot.res=96)
+ggplot(temp %>% filter(n>1),aes(n,fill=sample)) + 
+ geom_histogram() + 
+ facet_wrap(sample ~ .,nrow = 3) + 
+ xlab("Reads Per Unique Cluster") + 
+ scale_y_continuous(labels = scales::comma,breaks = scales::pretty_breaks(n = 5)) + 
+ scale_x_continuous(trans = "log2",breaks=scales::breaks_log(n = 10,base = 2)) +
+ theme_bw()+
+ theme(legend.position = "top",text=element_text(size=18)) + 
+ NULL + ggsave("../analysis/publication-figures/asym-longshort-shortlong-cluster-coverage-1-removed.pdf",width = 8,height = 4)
+
+options(repr.plot.width=3, repr.plot.height=5,repr.plot.res=96)
+ggplot(temp %>% filter(n>1),aes(sample,n,fill=sample)) + 
+ geom_boxplot()+ 
+ scale_y_continuous(trans = "log2",breaks=scales::breaks_log(n = 10,base = 2)) +
+ theme_bw()+
+ theme(legend.position = "top",text=element_text(size=18)) +
+ NULL +  ggsave("../analysis/publication-figures/asym-boxplot-longshort-shortlong-cluster-coverage.pdf",width = 8,height = 4)
+
+```
+
+### SNP Venn Diagram
+```{r}
+### collapsed variant allele distribution ###
+library(tidyverse)
+library(reshape2)
+library(ggpubr)
+mydf=data.table::fread("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/3-generate-fragment-lib/barcode-allele.tsv",
+                  sep = "\t",header=T,nThread = 16) %>% 
+    as_tibble %>% 
+    group_by(mutation) %>% 
+    count(type) %>% 
+    dcast(mutation ~ type, value.var = "n",fill = 0) %>%
+    mutate(asym=T)
+
+## bedtools intersect -a <(sed 's/chr//g' total500.bed) -b 00-common_all.vcf -wa -wb   > common-mut-overlapping-capture.txt
+annotation=data.table::fread("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/common-mut-overlapping-capture.txt",
+                             sep = "\t",col.names= c("cc","cs","ce","cx","cname","vc","vpos","vid","vref","valt","x","y","vinfo"),nThread = 16) %>% 
+    as_tibble %>%
+    rowwise() 
+
+### These are the all common events.
+annotation %>% 
+    select(cname) %>% 
+    separate_rows(cname,sep = ",") %>% 
+    filter(grepl("snp",cname)) %>% 
+    mutate(cname=gsub("snp_","",cname)) %>% distinct %>% pull(cname) -> original_snp_rs_id
+
+annotation %>% 
+    select(vc:vinfo) %>% 
+    separate_rows(vref,sep = ',') %>% 
+    separate_rows(valt,sep = ",") %>% 
+    mutate(G5 = grepl(pattern = "G5",x = vinfo),
+           original=c(vid %in% original_snp_rs_id),
+           mutation=sprintf('chr%s;%s;%s;%s',vc,vpos,vref,valt),
+           indel=if_else(nchar(vref) > 1 | nchar(valt) > 1 , T,F)
+           ) %>%
+    select(mutation,G5,original,indel,vid) %>% 
+    mutate(common =T) -> annotation
+
+sprintf("total original allele number is %s",annotation %>% filter(original == T) %>% nrow)
+sprintf("total original SNP number is %s",annotation %>% filter(original == T) %>% filter(indel == F) %>% nrow)
+sprintf("unique RS id is %s",annotation %>% filter(original == T) %>% filter(indel == F) %>% distinct(vid) %>% nrow)
+
+full_join(mydf,annotation,by = "mutation") -> mydf
+
+mydf[is.na(mydf)] = F
+
+mydf %>% filter(`1` >=10 & `2`>=10) -> mydf ### ALL EVENTS WITH LESS THAN 3 supporting read on both ALLELES 
+mydf %>% mutate(VAF=if_else(is.na(`2`/(`1`+`2`)) , 0,`2`/(`1`+`2` ))) -> mydf
+
+sprintf("OG SNPs with minimum 10 support on both WT and ALT are this many %s",mydf %>% filter(original ==T & indel ==F) %>% distinct(vid) %>% nrow)
+
+mydf %>% filter(original ==T & asym ==T & G5 == T) %>% select(mutation) %>% mutate(type ="og") -> temp1
+mydf %>% filter(original ==F & asym ==T & G5 == T) %>% select(mutation) %>% mutate(type ="common") -> temp2
+mydf %>% filter(original ==F & asym ==T & G5 == F) %>% select(mutation) %>% mutate(type ="asym") -> temp3
+
+vroom::vroom_write(x = rbind.data.frame(temp1,temp2,temp3),file = "../analysis//publication-figures/snp-type.txt.gz",delim = "\t")
+
+nrow(temp1)
+nrow(temp2)
+nrow(temp3)
+
+### SNP VENN DIAGRAM ###
+mydf %>% select(asym,G5,original) %>% as.matrix -> temp
+library(eulerr)
+fit <- euler(temp)
+p<- plot(fit,quantities = list(cex = .8,type = c("counts")),fill =c("#e41a1c","#377eb8","#4daf4a"))
+gridExtra::grid.arrange(p,ncol=1,padding=unit(2,"line"),top="",bottom="",right="",left="") 
+
+### Common vs uncommon comparison ###
+### uncommon those variants which are not in common VCF ###
+options(repr.plot.width=4, repr.plot.height=6,repr.plot.res=96)
+ggplot(mydf,aes(common,VAF,fill=common))+
+geom_boxplot()+
+stat_compare_means(method = "wilcox.test",comparisons = list(c("TRUE","FALSE")))+
+theme_bw()+
+theme(text=element_text(size = 18),legend.position = "top")
+
+mydf %>% filter(indel == F) %>% select(mutation,VAF,common,original,G5) %>% melt -> temp
+### 00 common bot none of original or G5, 01 not original, but G5, 11 original and G5 
+nrow(temp)
+temp %>% 
+    mutate(original=as.numeric(original),G5=as.numeric(G5)) %>% 
+    mutate(x=paste(as.numeric(original),as.numeric(G5),sep = "")) -> temp
+
+temp %>% pull(x) %>% table
+
+ggplot(temp %>% filter(common ==T),aes(x,value,fill=x))+
+geom_boxplot()+
+stat_compare_means(method = "wilcox.test",comparisons = list(c("00","01"),c("00","11")))+
+theme_bw()+
+theme(text=element_text(size = 18),legend.position = "top")
+```
+
+### Collapsed variant allele distribution ###
+```{r}
+### collapsed variant allele distribution ###
+### this code and previous code in the analyiss above is same. ####
+library(tidyverse)
+library(reshape2)
+library(ggpubr)
+mydf=data.table::fread("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/3-generate-fragment-lib/barcode-allele.tsv",
+                  sep = "\t",header=T,nThread = 16) %>% 
+    as_tibble %>% 
+    group_by(mutation) %>% 
+    count(type) %>% 
+    dcast(mutation ~ type, value.var = "n",fill = 0) %>%
+    mutate(asym=T)
+
+## bedtools intersect -a <(sed 's/chr//g' total500.bed) -b 00-common_all.vcf -wa -wb   > common-mut-overlapping-capture.txt
+annotation=data.table::fread("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/common-mut-overlapping-capture.txt",
+                             sep = "\t",col.names= c("cc","cs","ce","cx","cname","vc","vpos","vid","vref","valt","x","y","vinfo"),nThread = 16) %>% 
+    as_tibble %>%
+    rowwise() 
+
+### These are the all common events.
+annotation %>% 
+    select(cname) %>% 
+    separate_rows(cname,sep = ",") %>% 
+    filter(grepl("snp",cname)) %>% 
+    mutate(cname=gsub("snp_","",cname)) %>% distinct %>% pull(cname) -> original_snp_rs_id
+
+annotation %>% 
+    select(vc:vinfo) %>% 
+    separate_rows(vref,sep = ',') %>% 
+    separate_rows(valt,sep = ",") %>% 
+    mutate(G5 = grepl(pattern = "G5",x = vinfo),
+           original=c(vid %in% original_snp_rs_id),
+           mutation=sprintf('chr%s;%s;%s;%s',vc,vpos,vref,valt),
+           indel=if_else(nchar(vref) > 1 | nchar(valt) > 1 , T,F)
+           ) %>%
+    select(mutation,G5,original,indel,vid) %>% 
+    mutate(common =T) -> annotation
+
+
+full_join(mydf,annotation,by = "mutation") -> mydf
+mydf[is.na(mydf)] = F
+
+mydf %>% filter(`1` >=10 & `2`>=10) -> mydf ### ALL EVENTS WITH LESS THAN 3 supporting read on both ALLELES 
+mydf %>% mutate(VAF=if_else(is.na(`2`/(`1`+`2`)) , 0,`2`/(`1`+`2` ))) -> mydf
+
+library(gtsummary) 
+mydf %>% rowwise() %>% filter (all(!is.na(`1`),!is.na(`2`))) %>% mutate(total_coverage = `1`+`2`) %>% select(`1`,`2`,total_coverage) %>% apply(.,2,summary)
+mydf %>% rowwise() %>% filter (original == T & all(!is.na(`1`),!is.na(`2`))) %>% mutate(total_coverage = `1`+`2`) %>% select(`1`,`2`,total_coverage) %>% apply(.,2,summary)
+mydf %>% rowwise() %>% filter (G5 == T & all(!is.na(`1`),!is.na(`2`))) %>% mutate(total_coverage = `1`+`2`) %>% select(`1`,`2`,total_coverage) %>%  apply(.,2,summary)
+```
+
+### Collapsed enhancer per capture region ###
+```{r}
+### collapsed variant allele distribution ###
+library(tidyverse)
+library(reshape2)
+library(ggpubr)
+mydf=data.table::fread("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/collapsed-capture",
+                  sep = "\t",nThread = 16) %>% 
+    as_tibble
+
+mydf %>% select(V4,V13:V17) %>% unite(cindex,c("V13","V14","V15"),sep = ";") %>% separate(V17,sep = "_",into = c("type","b")) -> temp
+
+temp %>% group_by(type) %>% summarize(n=n(), type=unique(type))
+
+mydf %>% filter(V5 >= 60 ) %>% select(V4,V13:V17) %>% unite(cindex,c("V13","V14","V15"),sep = ";") %>% separate(V17,sep = "_",into = c("type","b")) %>% group_by(type) %>% summarize(n=n(), type=unique(type))
+
+### Collapsed enhancer per capture region ###
+temp %>% 
+    filter(cindex !=".;-1;-1") %>% 
+    group_by(cindex,type) %>% count() %>% ungroup %>% group_by(type) %>% 
+    summarize(medianx=median(n),meanx=mean(n), maxx=max(n), minx=min(n))
+```
+#### Venn diagram of on-target
+```{r}
+
+library(eulerr)
+library(tidyverse)
+library(vroom)
+asym=vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/motif-on-capture/asym-ontarget.txt",
+           delim =  " ",num_threads = 16,col_names = c("count","index"))
+asym$sample ="asym"
+
+longread=vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/motif-on-capture/pb-ontarget.txt",
+           delim =  " ",num_threads = 16,col_names = c("count","index"))
+longread$sample="longread"
+
+mydf=rbind.data.frame(asym,longread)
+mydf %>% reshape2::dcast(index ~ sample,value.var = "count",fill = 0)-> mydf
+
+mydf %>% filter(grepl(pattern =  paste("chr",c(1:22,"M","X","Y"),":",sep = "",collapse = "|"),x = index)) -> mydf
+mydf %>% mutate_at(c("asym","longread"),~if_else(. == 0,true = F,false = T)) -> dummy
+head(dummy)
+rownames(dummy)=dummy$index
+dummy=dummy[,-1]
+dummy = as.matrix(dummy)
+library(eulerr)
+library(gridExtra)
+options(repr.plot.width=5, repr.plot.height=5)
+set.seed(1)
+fit <- euler(dummy)
+options(repr.plot.width=5, repr.plot.height=5)
+pdf("../analysis/publication-figures/venn-asym-longread-barcodes.pdf",width = 8,height = 8)
+p<- plot(fit,quantities = list(cex = .8,type = c("counts","percent")),fill =c("#e41a1c","#377eb8","#4daf4a"))
+grid.arrange(p,ncol=1,padding=unit(2,"line"),top="",bottom="",right="",left="")
+dev.off()
+```
+
+```{r}
+### Yi main TABLE request
+library(tidyverse)
+library(reshape2)
+library(vroom)
+
+mysamples=list.files("../analysis//full-data-strict/4-symmetric-barcode-quantification/",pattern = "startposcounts.",full.names = T)
+
+rna=vroom(mysamples,delim = " ",col_names = c("count","index"),id = "sample",num_threads = 16,show_col_types = FALSE) %>% mutate(sample=gsub(pattern = "startposcounts.",replacement = "",x = basename(sample)))
+
+rna %>% dcast(index ~ sample, value.var = "count",fill = 0) -> rna
+
+rna %>% 
+    filter(grepl(pattern =  paste("chr",c(1:22,"M","X","Y"),":",sep = "",collapse = "|"),x = index))  -> rna
+head(rna)
+
+rna %>% 
+    select(index, `SNP_CL.txt`,
+              `SNPR1_24.txt`,`SNPR2_24.txt`,`SNPR3_24.txt`,
+              `SNPR1_48.txt`,`SNPR2_48.txt`,`SNPR3_48.txt`,
+              `SNPR1_72.txt`,`SNPR2_72.txt`,`SNPR3_72.txt`
+              ) -> temp
+
+vroom_write(temp,file = "mrna-all-samples-frag-index.txt.gz",delim = "\t")
+```
+
+
+## Pathogenecity
+### CADD
+```{r}
+library(vroom)
+library(tidyverse)
+library(reshape2)
+h48=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample))) %>% filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+
+cadd_res = vroom("../analysis/publication-figures/pahthogenecity-testing/cadd-prediction/GRCh37-v1.6_6123ca426476f4eb96fdfaa8519c34fd.tsv",delim = "\t",show_col_types = F) %>% rowwise %>% mutate(event=sprintf("chr%s;%s;%s;%s",Chrom,Pos,Ref,Alt))
+
+mydf=left_join(h48,cadd_res %>% select(event,RawScore,PHRED),by = "event")
+
+mydf %>% select(SNP,event, ref_count,alt_count,ref_expr,alt_expr,alt_effect,pvalue,RawScore,PHRED) -> mydf
+
+options(repr.plot.width=6, repr.plot.height=6)
+mydf %>% 
+    ggplot(., aes(alt_effect,PHRED))+
+    geom_point(shape=21,fill="gray",size=3,alpha=.5)+
+    ggpubr::stat_cor(size=5) +
+    #geom_smooth(method = "lm")+
+    theme_bw()+
+    theme(text=element_text(size = 25),legend.position = "top") +
+    xlab("48hr Alt Effect ~ log2fc(ALT/WT)")+
+    ylab("CADD Score ~ PHRED")+
+    ggsave("../analysis/publication-figures/pathogenecity-dotplot-CADD.pdf",width = 8,height = 8)
+    NULL
+```
+### ncER
+```{r}
+### ncER score comparison ###
+library(vroom)
+library(tidyverse)
+library(reshape2)
+h48=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% 
+  mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample))) #%>% 
+    #filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+
+# snp_annotation=vroom("../analysis//publication-figures/snp-type.txt.gz",delim = "\t",show_col_types = FALSE) %>% 
+#     rename(event=mutation) 
+
+ncER = vroom("../analysis//publication-figures/pahthogenecity-testing/ncER/ncER-overlap",delim = "\t",show_col_types = F,col_names = c("c","s","e","ref","alt","nc_c","nc_s","nc_e","nc_score")) %>% 
+    unite("event",c(c,s,ref,alt),sep=";") %>% 
+    select(event,nc_score) %>% 
+    mutate(nc_score=if_else(nc_score != ".",as.double(nc_score),0))
+
+# mydf=left_join(new,snp_annotation,by = "event")
+mydf=inner_join(h48,ncER,by = "event") %>% filter(!is.na(nc_score))
+
+library(ggpubr)
+mydf %>% 
+    mutate(nc_bin = nc_score >= 95) %>%
+    ggplot(., aes(nc_bin,alt_effect))+
+    geom_boxplot()+
+    stat_compare_means(comparisons = list(c("FALSE","TRUE")),method = "wilcox.test")+
+    theme(text=element_text(size = 20),legend.position = "top") +
+    xlab("ncER Percentile >95")+
+    ylab("48hr Event Significance~ -log10(padj)")+
+    ggsave("../analysis/publication-figures/pathogenecity-boxplot-ncER.pdf",width = 6,height = 6)+
+    NULL
+
+options(repr.plot.width=6, repr.plot.height=6)
+mydf %>% 
+    ggplot(., aes(alt_effect,nc_score))+
+    geom_point(shape=21,fill="gray",size=3,alpha=.5)+
+    ggpubr::stat_cor(size=5) +
+    #geom_smooth(method = "lm")+
+    theme_bw()+
+    theme(text=element_text(size = 25),legend.position = "top") +
+    xlab("48hr Alt Effect ~ log2fc(ALT/WT)")+
+    ylab("ncER ~ Essentiality Score")+
+    ggsave("../analysis/publication-figures/pathogenecity-dotplot-ncER-alt_effect.pdf",width = 8,height = 8)+
+    NULL
+
+
+options(repr.plot.width=6, repr.plot.height=6)
+mydf %>% 
+    ggplot(., aes(-log10(padj),nc_score))+
+    geom_point()+
+    ggpubr::stat_cor() +
+    theme_bw()+
+    #geom_smooth(method = "lm")+
+    theme(text=element_text(size = 20),legend.position = "top") +
+    xlab("48hr Event Significance~ -log10(padj)")+
+    ylab("ncER ~ Essentiality Score")+
+    ggsave("../analysis/publication-figures/pathogenecity-dotplot-ncER-padj.pdf",width = 6,height = 6)+
+    NULL
+```
+
+### DeltaSVM 
+```{r}
+
+library(vroom)
+library(tidyverse)
+library(reshape2)
+library(ggpubr)
+h48=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% 
+  mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample)))  %>% 
+    filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+
+deltaSVM = vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/pahthogenecity-testing/deltasvm/deltaSVM-lncap-dht-results.txt",delim = "\t",show_col_types = F,col_names = c("event","deltaSVMscore"))
+
+mydf=inner_join(h48,deltaSVM,by = "event") 
+
+library(ggpubr)
+mydf %>% 
+    mutate(deltaSVMscorebin = abs(deltaSVMscore) >= 4) %>%
+    ggplot(., aes(deltaSVMscorebin,alt_effect))+
+    geom_boxplot()+
+    stat_compare_means(comparisons = list(c("FALSE","TRUE")),method = "wilcox.test")+
+    theme(text=element_text(size = 20),legend.position = "top") +
+    xlab("deltaSVM score > 4")+
+    ylab("48hr Alt Effect ~ log2")+
+    ggsave("../analysis/publication-figures/pathogenecity-boxplot-deltaSVM.pdf",width = 6,height = 6)+
+    NULL
+
+options(repr.plot.width=6, repr.plot.height=6)
+mydf %>% 
+    mutate(deltaSVMscorebin = abs(deltaSVMscore) >= 4) %>%
+    ggplot(., aes(deltaSVMscore,alt_effect))+
+    geom_point(shape=21,fill="gray",size=3,alpha=.5)+
+    ggpubr::stat_cor(size=5) +
+    #geom_smooth(method = "lm")+
+    theme_bw()+
+    theme(text=element_text(size = 25),legend.position = "top") +
+    xlab("48hr Alt Effect ~ log2fc(ALT/WT)")+
+    ylab("DeltaSVM ~ Essentiality Score")+
+    ggsave("../analysis/publication-figures/pathogenecity-dotplot-deltaSVM-alt_effect.pdf",width = 8,height = 8)+
+    NULL
+
+
+options(repr.plot.width=6, repr.plot.height=6)
+mydf %>% 
+    ggplot(., aes(deltaSVMscore,-log10(pvalue)))+
+    geom_point()+
+    ggpubr::stat_cor() +
+    theme_bw()+
+    #geom_smooth(method = "lm")+
+    theme(text=element_text(size = 20),legend.position = "top") +
+    xlab("48hr Alt Effect ~ -log10(pvalue)")+
+    ylab("DeltaSVM ~ Essentiality Score")+
+    ggsave("../analysis/publication-figures/pathogenecity-dotplot-deltaSVM-padj.pdf",width = 8,height = 8)+
+    NULL
+```
+### Adastra
+```{r}
+library(vroom)
+library(tidyverse)
+adastra=vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/pahthogenecity-testing/adastra/ananastra_zanthar_yv2rmic0.cl.tsv",delim = "\t")
+adastra %>% filter(cell_type == "LNCaP (prostate carcinoma)") %>% dplyr::rename(SNP=rs_id) -> adastra
+adastra %>% View
+
+h48=vroom('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample") %>%
+  mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample))) %>%filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+head(adastra)
+
+mydf = inner_join(x = h48,y = adastra,by="SNP")
+mydf %>% select(SNP,event,ref_count,alt_count,ref_expr,alt_expr,alt_effect,log10_fdr_ref,log10_fdr_alt,effect_size_ref,effect_size_alt,supporting_tfs) -> temp
+vroom_write(temp,file = "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/pahthogenecity-testing/adastra/adastra-h48-overlap-table",delim = "\t")
+```
+
+
+### Clinical Data Comparison
+```{r}
+library(tidyverse)
+library(ggpubr)
+### READ DATA HK , AR and ATAC
+hk = read_tsv('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/results.all.H3K27ac.tsv', col_types = cols())
+hk <-  hk %>% mutate(padj = p.adjust(ALL.BBINOM.P, method = 'fdr', n = nrow(hk)), sig = padj < 0.05)
+ar = read_tsv('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/results.all.AR.tsv', col_types = cols())
+ar <-  ar %>% mutate(padj = p.adjust(ALL.BBINOM.P, method = 'fdr', n = nrow(ar)), sig = padj < 0.05)
+
+atac = read_tsv('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/PRAD_bf_inpeak_imb.txt',
+                col_names = c('CHR','POS','RSID','P0','P1','NAME','CENTER','N.HET','N.READS','ALL.AF','ALL.BBINOM.P',
+                              'C0.AF','C0.BBINOM.P','C1.AF','C1.BBINOM.P',
+                              'DIFF.BBINOM.P', 'SNPs.per.peak', 'Bonferroni.adjusted.C1.BBINOM.P'),
+                col_types = cols(), skip = 1)
+atac <-  atac %>% mutate(padj = p.adjust(ALL.BBINOM.P, method = 'fdr', n = nrow(atac)), sig = padj < 0.05)
+
+### READ STARRSeq data
+min_count = 15
+st <- read_tsv(sprintf('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt'), col_types = cols()) %>%
+    mutate(CHR = sapply(strsplit(event, ';'), function(x) as.integer(gsub('chr', '', gsub('X', '23', x[[1]])))),
+               POS = sapply(strsplit(event, ';'), function(x) as.integer(x[2]))) %>%
+    filter( !is.na(z), alt_count >=min_count, ref_count >= min_count)
+
+st <- st %>% mutate(padj = p.adjust(pvalue, method = 'fdr'), sig = padj <0.05)  %>% filter(CHR < 23)
+
+
+
+### merge data in single DF
+mydf=rbind.data.frame(
+                st %>% mutate(alt=alt_expr/alt_count,ref=ref_expr/ref_count) %>%
+                  select(SNP,alt_freq,CHR,POS,alt,ref,pvalue) %>%
+                  dplyr::rename(RSID=SNP,af=alt_freq) %>%
+                  mutate(sample="st")%>% distinct(RSID,.keep_all=T),
+                 ar %>% rename(pvalue=ALL.BBINOM.P) %>%
+                   mutate(alt=N.READS * ALL.AF,ref=N.READS * (1- ALL.AF)) %>%
+                   select(RSID,ALL.AF,CHR,POS,alt,ref,pvalue) %>%
+                   dplyr::rename(af=ALL.AF) %>%
+                   mutate(sample="ar") %>% distinct(RSID,.keep_all=T),
+                 atac %>% rename(pvalue=ALL.BBINOM.P) %>%
+                   mutate(alt=N.READS * ALL.AF,ref=N.READS * (1- ALL.AF)) %>%
+                   select(RSID,ALL.AF,CHR,POS,alt,ref,pvalue) %>%
+                   dplyr::rename(af=ALL.AF) %>%
+                   mutate(sample = "atac") %>% distinct(RSID,.keep_all=T),
+                 hk %>% rename(pvalue=ALL.BBINOM.P) %>%
+                   mutate(alt=N.READS * ALL.AF,ref=N.READS * (1- ALL.AF)) %>%
+                   select(RSID,ALL.AF,CHR,POS,alt,ref,pvalue) %>%
+                   dplyr::rename(af=ALL.AF) %>%
+                   mutate(sample ="hk") %>% distinct(RSID,.keep_all=T)
+)
+
+### this code generates a table for scatter plot. AF of ST and other samples.
+### this data will be used for tagging events later
+### extracts significant evets on STARRseq.
+mydf %>% filter(sample == "st" & pvalue < 0.05) %>% pull(RSID) -> sig_st_RSID
+mydf %>%
+  filter(RSID %in% sig_st_RSID) %>%
+  reshape2::dcast(RSID~sample, value.var = "af",fun.aggregate = NULL) %>%
+  rowwise() %>%  filter(!is.na(st) & !all(c(is.na(ar),is.na(hk),is.na(atac)))) %>%
+  data.table::melt(., id.vars=c("RSID","st")) ->  temp
+
+
+### iki ya da daha fazla deger olan #
+temp %>%
+  data.table::dcast(RSID ~ variable) %>%
+  rowwise %>% mutate(x= sum(c(!is.na(ar),!is.na(atac),!is.na(hk))) >= 2) %>% filter(x)
+
+temp %>%
+  data.table::dcast(RSID ~ variable) %>%
+  rowwise %>% mutate(x= sum(c(!is.na(ar),!is.na(atac),!is.na(hk))) >= 3) %>% filter(x) %>%
+  pull(RSID) -> example_rsid
+
+for (i in example_rsid){
+  mydf %>%
+    filter(RSID == i) %>%
+    select(RSID,alt,ref,sample) %>%
+    reshape2::melt() %>%
+    mutate(variable=factor(variable,levels = c("ref","alt"))) %>%
+    ggplot(aes(variable,value,fill=variable))+
+    geom_bar(stat="identity",position="dodge") +
+    facet_wrap(sample~.,scales= 'free',nrow=1)+
+    theme_classic()+
+    ggtitle(i)+
+    theme(text=element_text(size = 20),legend.position = "none",plot.title = element_text(hjust = 0.5)) +
+    ggsave(filename = sprintf("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/clinical-comparison/2clinical-comparison-examples-%s.pdf",i),
+           width = 8,height = 4)
+    ggsave(filename = sprintf("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/clinical-comparison/2clinical-comparison-examples-%s.png",i),
+           width = 8,height = 4)
+}
+
+generate_plot_df <- function(chip_df, star_df){
+    overlap <- intersect(chip_df %>% pull(RSID), star_df %>% pull(SNP))
+    sub_st <- star_df %>% filter(SNP %in% overlap) %>% arrange(SNP)
+    sub_chip <- chip_df %>%filter(RSID %in% overlap) %>% arrange(RSID)
+    RSID= sub_chip$RSID
+    plot_df <- data.frame(starrseq_alt_freq = sub_st %>% pull(alt_freq), chipseq_alt_freq = sub_chip %>% pull(ALL.AF),RSID=RSID)
+    return(plot_df)
+}
+
+star_list <- list()
+star_list[['all SNP']] <- st
+star_list[['p < 0.05']] <- st %>% filter(pvalue < 0.05)
+#star_list[['padj < 0.05']] <- st %>% filter(padj < 0.05)
+chip_list <- list()
+chip_list[['H3K27ac']] <- hk
+chip_list[['AR']] <- ar
+chip_list[['ATAC']] <- atac
+
+plot_df <- data.frame()
+#for (category in c('all SNP', 'p < 0.05', 'padj < 0.05')){
+for (category in c('all SNP', 'p < 0.05')){
+    for (chip in c('H3K27ac', 'AR', 'ATAC')){
+        sub_plot_df <- generate_plot_df( chip_list[[chip]], star_list[[category]])
+        sub_plot_df$snp  = category
+        sub_plot_df$chipseq = chip
+        plot_df = rbind(plot_df, sub_plot_df)
+    }
+}
+
+options(repr.plot.height = 10, repr.plot.width = 10)
+xy_limit <- plot_df %>% dplyr::select(starrseq_alt_freq, chipseq_alt_freq) %>%range()
+plot_df$chipseq <- factor(plot_df$chipseq, levels = c('H3K27ac', 'AR', 'ATAC'))
+p <- ggplot(plot_df, aes(x = starrseq_alt_freq, y = chipseq_alt_freq )) +
+    geom_point(size=4,pch=21,fill="gray",alpha=0.7) +
+        xlab('Alt AF in snpSTARRseq') +
+        ylab('Alt AF in ChIPseq') +
+
+    theme_bw(base_size = 20) +
+    geom_hline(yintercept = 0.5, color = 'blue', linetype = 'dashed') +
+    geom_vline(xintercept = 0.5, color = 'blue', linetype = 'dashed') +
+    xlim(xy_limit) + ylim(xy_limit) +
+    stat_cor(method="pearson", size = 7) +
+    facet_grid(chipseq ~ snp)
+p
+ggsave('../analysis//publication-figures/clinical-comparison/clinical-chipseq-comparison_tunc.pdf', p, height = 10, width = 10)
+
+
+
+color=c(#"#FABE5B",
+        "#6CA3D8",
+        "#9B00E8")
+p <- ggplot(plot_df, aes(x = starrseq_alt_freq, y = chipseq_alt_freq )) +
+    geom_point(size=4,pch=21,fill="gray",alpha=0.7) +
+        xlab('Alt AF in snpSTARRseq') +
+        ylab('Alt AF in ChIPseq') +
+    geom_point(data = plot_df %>% filter(RSID %in% example_rsid & snp == "p < 0.05"), aes(x = starrseq_alt_freq, y = chipseq_alt_freq,color=RSID)) +
+    ggrepel::geom_label_repel(data = plot_df %>% filter(RSID %in% example_rsid & snp == "p < 0.05"), aes(x = starrseq_alt_freq, y = chipseq_alt_freq,color=RSID,label=RSID))+
+    theme_bw(base_size = 20) +
+    geom_hline(yintercept = 0.5, color = 'red', linetype = 'dashed') +
+    geom_vline(xintercept = 0.5, color = 'red', linetype = 'dashed') +
+    xlim(xy_limit) + ylim(xy_limit) +
+    stat_cor(method="pearson", size = 5,label.x=.4,label.y.npc=.2) +
+    facet_grid(snp ~ chipseq)+
+    scale_color_manual(values=color)+
+    theme(legend.position = "none",panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+p
+ggsave('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/clinical-comparison/clinical-chipseq-comparison_tunc-tagged.pdf', p, height = 8, width = 12)
+
+
+
+```
+
+
+### Bi-allelic Venn 24/48/72
+```{r}
+
+library(vroom)
+library(tidyverse)
+library(reshape2)
+
+#mysamples=list.files(path = "../yi-results-48/",pattern = "*h.txt",full.names = T)x
+h24=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_24h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_",replacement = "",x = basename(sample)))
+h24 = h24 %>% filter(alt_count >=15 & ref_count >=15) 
+h24$padj=p.adjust(h24$pvalue,method = "fdr",n = nrow(h24))
+
+h48=vroom('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_",replacement = "",x = basename(sample)))
+h48 = h48 %>%  filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+
+h72=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_72h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_",replacement = "",x = basename(sample)))
+h72 = h72 %>% filter(alt_count >=15 & ref_count >=15) 
+h72$padj=p.adjust(h72$pvalue,method = "fdr",n = nrow(h72))
+
+mydf=rbind.data.frame(h24,h48,h72)
+snp_annotation=vroom("../analysis//publication-figures/snp-type.txt.gz",delim = "\t",show_col_types = FALSE) %>% rename(var=mutation) %>% rename(event=var)
+#mydf=left_join(mydf,snp_annotation,by = "event")
+
+
+mydf %>% filter(padj < .05  ) %>% dcast(event ~ sample,function(x) as.logical(length(x) > 0)) %>% select(-event) -> dummy
+
+rownames(dummy)=dummy$index
+dummy = as.matrix(dummy)
+
+library(eulerr)
+library(gridExtra)
+options(repr.plot.width=5, repr.plot.height=5)
+set.seed(1)
+
+fit <- euler(dummy)
+options(repr.plot.width=5, repr.plot.height=5)
+p<- plot(fit,quantities = list(cex = .8,type = c("counts")))
+pdf("../analysis/publication-figures/venn-biallelic-common-comparison-24-48-72-FDR05.pdf",height = 6,width = 6)
+grid.arrange(p,ncol=1,padding=unit(2,"line"),top="",bottom="",right="",left="")   
+dev.off()
+
+mydf %>% filter(pvalue < .05  ) %>% dcast(event ~ sample,function(x) as.logical(length(x) > 0)) %>% select(-event) -> dummy
+
+rownames(dummy)=dummy$index
+dummy = as.matrix(dummy)
+
+library(eulerr)
+library(gridExtra)
+options(repr.plot.width=5, repr.plot.height=5)
+set.seed(1)
+
+fit <- euler(dummy)
+options(repr.plot.width=5, repr.plot.height=5)
+p<- plot(fit,quantities = list(cex = .8,type = c("counts")))
+pdf("../analysis/publication-figures/venn-biallelic-common-comparison-24-48-72-nominal05.pdf",height = 6,width = 6)
+grid.arrange(p,ncol=1,padding=unit(2,"line"),top="",bottom="",right="",left="")   
+dev.off()
+```
+
+### Bi-allelic Scatter 24/48/72
+```{r}
+
+### 24 / 48 /72 SCATTER plot
+library(vroom)
+library(tidyverse)
+library(reshape2)
+
+#mysamples=list.files(path = "../yi-results-48/",pattern = "*h.txt",full.names = T)x
+h24=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_24h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample)))
+h24 = h24 %>% filter(alt_count >=15 & ref_count >=15) 
+h24$padj=p.adjust(h24$pvalue,method = "fdr",n = nrow(h24))
+
+h48=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample)))
+h48 = h48 %>%  filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+
+h72=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_72h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample)))
+h72 = h72 %>% filter(alt_count >=15 & ref_count >=15)
+h72$padj=p.adjust(h72$pvalue,method = "fdr",n = nrow(h72))
+
+mydf=rbind.data.frame(h24,h48,h72)
+# snp_annotation=vroom("../analysis//publication-figures/snp-type.txt.gz",delim = "\t",show_col_types = FALSE) %>% rename(var=mutation) %>% rename(event=var)
+# mydf=left_join(mydf,snp_annotation,by = "event")
+
+mydf %>% dcast(event ~ sample,value.var = "alt_effect",fill = NA) %>% select(-event)  %>% rename(`24h` = `24h.txt`, `48h`= `48h.txt`, `72h` = `72h.txt`) %>% 
+    ggplot(. , aes(`72h`,`48h`))+
+    geom_point()+ 
+    ggpubr::stat_cor() +
+    geom_smooth(method = "lm")+
+    theme_bw()+
+    theme(text=element_text(size = 20),legend.position = "top") +
+    ggsave("../analysis/publication-figures/biallelic-dotplot-48-72.pdf",width = 6,height = 6) +
+    NULL
+
+mydf %>% dcast(event ~ sample,value.var = "alt_effect",fill = NA) %>% select(-event)  %>% rename(`24h` = `24h.txt`, `48h`= `48h.txt`, `72h` = `72h.txt`) %>% 
+    ggplot(. , aes(`24h`,`48h`))+
+    geom_point()+ 
+    ggpubr::stat_cor() +s
+    geom_smooth(method = "lm")+
+    theme_bw()+
+    theme(text=element_text(size = 20),legend.position = "top") +
+    ggsave("../analysis/publication-figures/biallelic-dotplot-48-24.pdf",width = 6,height = 6) +
+    NULL
+```
+
+
+
+### Waterfall data
+```{r}
+library(tidyverse)
+library(ggrepel)
+library(DESeq2)
+library(cowplot)
+library(plotly)
+library(fst)
+maindf=fst::read.fst(path = "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/main-table.fst")
+capture=read.table("/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed",sep = "\t",stringsAsFactors = F,col.names =c("cc","cs","ce","x","n"))
+capture %>% unite(cindex,c("cc","cs","ce"),sep = ";") %>% separate(n,sep = "_",into = c("type","b")) %>% select(cindex,type) -> capture
+
+maindf %>% 
+  ungroup() %>%
+  filter(cindex != ".;-1;-1") %>% 
+  group_by(sample,cindex) %>% ## for sample count the fragments under the same capture region. 
+  summarise(capture_sum= sum(count)) %>% 
+  dcast(.,cindex ~ sample, value.var = "capture_sum") %>%
+  rowwise() %>% mutate(hr24_norm=log2((SNPR1_24+SNPR2_24+SNPR3_24)/3/SNP_CL),
+                              hr48_norm= log2((SNPR1_48 + SNPR2_48 + SNPR3_48) /3/SNP_CL) ,
+                              hr72_norm= log2((SNPR1_72 + SNPR2_72 + SNPR3_72) /3/SNP_CL)
+                              ) %>% 
+  select(cindex,hr24_norm,hr48_norm,hr72_norm) -> norm_mydf
+
+norm_mydf=inner_join(norm_mydf,capture,by="cindex")
+
+norm_mydf %>% select(cindex,hr24_norm,type) %>% arrange(hr24_norm) -> a
+a$index= 1:nrow(a)
+
+norm_mydf %>% select(cindex,hr48_norm,type) %>% arrange(hr48_norm) -> b
+b$index= 1:nrow(b)
+
+norm_mydf %>% select(cindex,hr72_norm,type) %>% arrange(hr72_norm) -> c
+c$index= 1:nrow(c)
+
+## 24 plot 
+jitter <- position_jitter(width = 0.5, height = 0.15)
+left<-ggplot(a %>% filter(type == "snp"),aes(x = index,y = hr24_norm))+
+geom_point(position = jitter,alpha=0.5,size=5,fill="gray") +
+scale_color_manual(name="RegionType",values=colors)+
+ylab("Log2(Normalized Expression to Library Sample)")+ 
+theme_bw(base_size = 20) +
+ggtitle("24")+ 
+coord_cartesian(ylim = c(-2,8)) +
+theme(legend.position = "none")+
+NULL
+
+right<-ggplot(a %>% filter(type != "snp"),aes(x = hr24_norm,fill=type)) + 
+geom_density()+
+coord_flip(xlim = c(-2,8)) + 
+ggtitle(" ")+
+theme_classic(base_size = 20)+
+theme(legend.position = "none",axis.line = element_blank(), axis.text = element_blank(),axis.ticks = element_blank(),axis.title = element_blank())+
+NULL
+
+plot_grid(left,right,ncol = 2, rel_widths = c(4,1),align="h",axis="l") + 
+ ggsave("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/waterfall_normalized_to_lib24hrs.pdf",width = 6,height = 6)
+NULL
+
+## 48 plot 
+jitter <- position_jitter(width = 0.5, height = 0.15)
+left<-ggplot(b %>% filter(type == "snp"),aes(x = index,y = hr48_norm,fill=type)) +
+geom_point(position = jitter,alpha=0.5,size=5) +
+scale_color_manual(name="regopn")+
+ylab("Log2(Normalized Expression to Library Sample)")+ 
+theme_classic(base_size = 20) +
+ggtitle("48")+ 
+coord_cartesian(ylim = c(-2.5,8)) +
+theme(legend.position = "none")+
+NULL
+
+right<-ggplot(b %>% filter(type != "snp"),aes(x = hr48_norm,fill=type)) + 
+geom_density()+
+coord_flip(xlim = c(-2,8)) + 
+ggtitle(" ")+
+theme_classic(base_size = 20)+
+theme(legend.position = "none",axis.line = element_blank(), axis.text = element_blank(),axis.ticks = element_blank(),axis.title = element_blank()) +
+NULL
+
+plot_grid(left,right,ncol = 2, rel_widths = c(4,1),align="h",axis="l")  +
+ ggsave("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/waterfall_normalized_to_lib48hrs.pdf",width = 6,height = 6)
+NULL
+
+## 72 plot 
+jitter <- position_jitter(width = 0.5, height = 0.15)
+left<-ggplot(c %>% filter(type == "snp"),aes(x = index,y = hr72_norm,fill=type))+
+geom_point(position = jitter,alpha=0.5,size=5,fill="gray") +
+scale_color_manual(name="RegionType",values=colors)+
+ylab("Log2(Normalized Expression to Library Sample)")+ 
+theme_bw(base_size = 20) +
+ggtitle("72")+ 
+coord_cartesian(ylim = c(-2,8)) +
+theme(legend.position = "none")+
+NULL
+
+right<-ggplot(c %>% filter(type != "snp"),aes(x = hr72_norm,fill=type)) + 
+geom_density()+
+coord_flip(xlim = c(-2,8)) + 
+ggtitle(" ")+
+theme_classic(base_size = 20)+
+theme(legend.position = "none",axis.line = element_blank(), axis.text = element_blank(),axis.ticks = element_blank(),axis.title = element_blank())+
+NULL
+
+plot_grid(left,right,ncol = 2, rel_widths = c(4,1),align="h",axis="l") + 
+ ggsave("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/waterfall_normalized_to_lib72hrs.pdf",width = 6,height = 6)
+NULL
+
+```
+
+

@@ -48,7 +48,7 @@ mutation_dict={} ### keeps all alleles of same position mutations
 mutation_position=[] ### keeps positions (mutations) to be used by pile up ###
 barcode_index_dict={} ### keeps collapsed fragent barcode --> index information.
 with open(db_file, 'r') as file_in:
-    ### temp example ['ATGTGTAAAATATAAACAAAACAT', 'chr6:109326943-ATGCAT', 'ATGTTTTGTTTATATTTTACACAT', 'snp', 'chr6', '109326945', 'C', 'G', 'PASS']
+    ### temp example ['chr6:109326943-ATGCAT', 'ATGTTTTGTTTATATTTTACACAT', 'snp', 'chr6', '109326945', 'C', 'G', 'PASS']
     for line in file_in:
         temp=line.rstrip("\n").split("\t")
         index, fragment_name, event_type, event_chr, event_pos, event_ref, event_alt, temp_x = temp
@@ -90,7 +90,7 @@ with open(target_region, 'r') as file_in:
         print("Analysing Segment no {}      ".format(segment_no,"_".join(segment)))
         samfile = pysam.AlignmentFile(bam_file, "rb")
         for pileupcolumn in samfile.pileup(segment[0], int(segment[1]),int(segment[2])):        
-            pileupcolumn.set_min_base_quality(5) ### This sets minimum quality score of pileup. We had problems in past our variants are going way simply becasue the BASE quality was too low and mpileup discards it.
+            pileupcolumn.set_min_base_quality(1) ### This sets minimum quality score of pileup. We had problems in past our variants are going way simply becasue the BASE quality was too low and mpileup discards it.
             if pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1) in mutation_position:#["chr10;104418948","chr10;104418946","chr10;104418945"]:     
                 for allele in mutation_dict[pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1)]: ### we are doing this because some events are multi alallic therefore i have to go through all of them.
                     #print ("\ncoverage at base %s = %s" % (pileupcolumn.pos, pileupcolumn.n))

@@ -4,13 +4,29 @@
 #   else:
 #     return(expand("{x}",x=config["fragment_retreival"][wildcards.seqtype][wildcards.sample_name][wildcards.direction]))
 def get_replicates(wildcards):
-
   if list(config["fragment_retreival"].keys())[0] == "pb":
     return(config["fragment_retreival"]["pb"]["reads"])
   else:
     return(expand("{x}",x=config["fragment_retreival"]["asym"][wildcards.sample_name][wildcards.direction]))
-    
-  
+
+def get_snp_annotation(wildcards):
+  if config["snp_annotation"] == "" or "snp_annotation" not in config:
+    return(config["snp_annotation"])
+  else:
+    return(config["snp_annotation"])
+
+def get_stat_biallele_barcode_allele(wildcards):
+  print('analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-allele.tsv'.format(run_name=config["run_name"],seq_type=list(config["fragment_retreival"].keys())[0]) )
+  return('analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-allele.tsv'.format(run_name=config["run_name"],seq_type=list(config["fragment_retreival"].keys())[0]) )
+
+def get_stat_biallele_mrna(wildcards):
+  print(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"]))
+  return(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"]))
+
+def get_stat_biallele_dna(wildcards):
+  print(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["dna"]))
+  return(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["dna"]))
+
 def get_mrna_r1(wildcards):
   return(expand("{x}",x=config["quantification"][wildcards.mrna_sample]["r1"] ))
 def get_mrna_r2(wildcards):
@@ -21,34 +37,26 @@ def generate_results():
   run_name=config["run_name"]
   if "asym" in config["fragment_retreival"]:
     results.append(f'analysis/{run_name}/3-generate-fragment-lib/asym.barcode-allele.tsv')
+    results.append(f'analysis/{run_name}/3-generate-fragment-lib/asym.collapsed-fragments.bam')
   else:
     results.append(f'analysis/{run_name}/3-generate-fragment-lib/pb.barcode-allele.tsv')
+    results.append(f'analysis/{run_name}/3-generate-fragment-lib/pb.collapsed-fragments.bam')
   for i in list(config["quantification"].keys()):
       results.append(f'analysis/{run_name}/4-symmetric-barcode-quantification/startposcounts.{i}.txt')
   if config["longread_validation"] != "" and "longread_validationongread_samples" in config:
-    results.append(f'analysis/{run_name}/5-longread/longread-counts.txt')
+    results.append(f'analysis/{run_name}/misc-longread/longread-counts.txt')
+  if config["bi_allelic_comparisons"] != "" and "bi_allelic_comparisons" in config:
+    for comp_name,values in config["bi_allelic_comparisons"].items():
+      results.append(f'analysis/{run_name}/5-bi-allelic-comparisons/{comp_name}.result-table.txt')
+  print(results)
   return results
 
 
-# def generate_results():
-#   results=[]
-#   run_name=config["run_name"]
-#   for sample,values in config["fragment_retreival"].items():
-#     if values["type"] == "pb":
-#       results.append(f'analysis/{run_name}/3-generate-fragment-lib/pb.barcode-allele.tsv')
-#     else:
-#       results.append(f'analysis/{run_name}/3-generate-fragment-lib/asym.barcode-allele.tsv')
-#       break
-#   for i in list(config["quantification"].keys()):
-#       results.append(f'analysis/{run_name}/4-symmetric-barcode-quantification/startposcounts.{i}.txt')
-#   if config["longread_validation"] != "" and "longread_validationongread_samples" in config:
-#     results.append(f'analysis/{run_name}/5-longread/longread-counts.txt')
-#   return results
 
 rule all:
   input: generate_results()
 
-rule prep_merge_replicates:
+rule asym_prep_merge_replicates:
   input:
     get_replicates
   output:
@@ -60,7 +68,7 @@ rule prep_merge_replicates:
     """
     zcat {input} > {output}
     """
-rule trim_for_calib:
+rule asym_trim_for_calib:
   input:
     "analysis/{run_name}/1-cluster-consensus/asym.{sample_name}.{direction}.fastq"
   output:
@@ -73,7 +81,7 @@ rule trim_for_calib:
     seqtk trimfq -L 75 {input} > {output}
     """
 
-rule calib_cluster:
+rule asym_calib_cluster:
   input:
     r1="analysis/{run_name}/1-cluster-consensus/asym.trimmed.{sample_name}.r1.fastq",
     r2="analysis/{run_name}/1-cluster-consensus/asym.trimmed.{sample_name}.r2.fastq"
@@ -89,7 +97,7 @@ rule calib_cluster:
     ./code/calib/calib/calib -f {input.r1} -r {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/asym.{wildcards.sample_name}. {params} 2> {log}
     """
 
-rule calib_cons:
+rule asym_calib_cons:
   input:
     r1="analysis/{run_name}/1-cluster-consensus/asym.{sample_name}.r1.fastq",
     r2="analysis/{run_name}/1-cluster-consensus/asym.{sample_name}.r2.fastq",
@@ -107,7 +115,7 @@ rule calib_cons:
     ./code/calib/calib/consensus/calib_cons -q {input.r1} -q {input.r2} -o analysis/{wildcards.run_name}/1-cluster-consensus/asym.constemp.{wildcards.sample_name}.r1 analysis/{wildcards.run_name}/1-cluster-consensus/asym.constemp.{wildcards.sample_name}.r2 -c {input.cluster} 2> {log}
     """
 
-rule label_reads:
+rule asym_label_reads:
   input:
     r1="analysis/{run_name}/1-cluster-consensus/asym.constemp.{sample_name}.{direction}.fastq",
   output:
@@ -119,7 +127,7 @@ rule label_reads:
     """
 
 
-rule gather_reads:
+rule asym_gather_reads:
   input:
     a="analysis/{run_name}/1-cluster-consensus/asym.cons.longshort.{direction}.fastq",
     b="analysis/{run_name}/1-cluster-consensus/asym.cons.shortlong.{direction}.fastq"
@@ -131,7 +139,7 @@ rule gather_reads:
     cat {input.a} {input.b}  > {output.r1}
     """
 
-rule match_reads:
+rule asym_match_reads:
   input:
     r1="analysis/{run_name}/1-cluster-consensus/asym.merged.r1.fastq",
     r2="analysis/{run_name}/1-cluster-consensus/asym.merged.r2.fastq"
@@ -145,10 +153,10 @@ rule match_reads:
   threads:1
   shell:
     """
-    python code/snp-starrseq/read_id_matcher.py --f {input.r1} --r {input.r2} --p analysis/{wildcards.run_name}/2-match-reads/asym
+    python code/snp-starrseq/read_id_matcher.py --f {input.r1} --r {input.r2} --p analysis/{wildcards.run_name}/2-match-reads/asym.
     """
 
-rule pre_collapse_trim:
+rule asym_pre_collapse_trim:
   input:
     clust_r1="analysis/{run_name}/2-match-reads/asym.clustered.r1.fastq",
     clust_r2="analysis/{run_name}/2-match-reads/asym.clustered.r2.fastq"
@@ -164,7 +172,7 @@ rule pre_collapse_trim:
       seqtk trimfq -q 0.05 {input.clust_r2} > {output.trim_r2}
     """
 
-rule collapse_fragments:
+rule asym_collapse_fragments:
   input:
     trim_r1="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r1.fastq",
     trim_r2="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r2.fastq",
@@ -180,7 +188,7 @@ rule collapse_fragments:
     bbmerge.sh -Xmx100G ecco=t merge=t in1={input.trim_r1} in2={input.trim_r2} out={output.collapsed} 2>{log}
     """
 
-rule map_collapsed_to_ref:
+rule asym_map_collapsed_to_ref:
   input: 
     "analysis/{run_name}/3-generate-fragment-lib/asym.collapsed-fragments.fastq"
   output:
@@ -202,6 +210,8 @@ rule pacbio_longread_css:
     get_replicates
   output:
     "analysis/{run_name}/3-generate-fragment-lib/pb.bam"
+  conda:
+    "env/env.pacbio.yaml"
   params:
     config["smrttools_full_path"]
   shell:
@@ -213,6 +223,8 @@ rule pacbio_extract_reads:
     "analysis/{run_name}/3-generate-fragment-lib/pb.bam"
   output:
     temp("analysis/{run_name}/3-generate-fragment-lib/pb.fasta")
+  conda:
+    "env/env.pacbio.yaml"
   shell:
     """
     samtools fastq -@10 -n {input} |  awk 'NR % 4 == 1 || NR % 4 == 2' | sed 's/@/>/g' -  > {output}
@@ -222,6 +234,8 @@ rule pacbio_fasta_split:
     "analysis/{run_name}/3-generate-fragment-lib/pb.fasta"
   output:
     temp(expand("analysis/{{run_name}}/3-generate-fragment-lib/pb.fasta{cnt}",cnt=range(config['parts'])))
+  conda:
+    "env/env.pacbio.yaml"
   shell:
     """
     split {input} pb.fasta -d -a1 -n10
@@ -231,6 +245,8 @@ rule pacbio_mrsfast_index:
     "analysis/{run_name}/3-generate-fragment-lib/pb.fasta{cnt}"
   output:
     temp("analysis/{run_name}/3-generate-fragment-lib/pb.sam{cnt}")
+  conda:
+    "env/env.pacbio.yaml"
   params:
     config["longread_adaptor"]
   shell:
@@ -245,6 +261,8 @@ rule pacbio_merge_extract:
   output:
     merged=temp("analysis/{run_name}/3-generate-fragment-lib/pb.merged.bam"),
     extract="analysis/{run_name}/3-generate-fragment-lib/withoutadapter.fasta"
+  conda:
+    "env/env.pacbio.yaml"
   params:
       param= "-m8G"
   threads:
@@ -258,23 +276,26 @@ rule pacbio_map_markdup:
   input:
     "analysis/{run_name}/3-generate-fragment-lib/withoutadapter.fasta"
   output:
-    temp="analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.fasta",
-    temp0="analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.all0dir.sam",
-    temp0bam="analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.all0dir.bam",
-    final="analysis/{run_name}/3-generate-fragment-lib/collapsed-fragments.bam",
+    temp=temp("analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.fasta"),
+    temp0=temp("analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.all0dir.sam"),
+    temp0bam=temp("analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.all0dir.bam"),
+    final="analysis/{run_name}/3-generate-fragment-lib/pb.collapsed-fragments.bam",
+  conda:
+    "env/env.pacbio.yaml"
   shell:
     """
     minimap2 -t20 -ax asm20 -c ~/tools/hg19.fa {input} | samtools view -Sb | samtools sort -@10 -m10G > {output.temp};
     samtools view -F 2052 {output.temp} | awk 'BEGIN {{OFS="\t"}} {{print $1,0,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16}}' > {output.temp0};
     cat <(samtools view -H {output.temp0}) {output.temp0} | samtools view -Sb - | samtools sort -@10 -m10G > {output.temp0bam};
-    picard MarkDuplicates I={output.temp0bam} O={output.final} M=pacbio.markdup.metrics.txt VALIDATION_STRINGENCY=LENIENT
+    picard MarkDuplicates I={output.temp0bam} O={output.final} M=pacbio.markdup.metrics.txt VALIDATION_STRINGENCY=LENIENT;
+    samtools index {output.final}
     """
 
 rule create_variant_table:
   input:
-    "analysis/{run_name}/3-generate-fragment-lib/collapsed-fragments.bam"
+    "analysis/{run_name}/3-generate-fragment-lib/{seq_type}.collapsed-fragments.bam"
   output:
-    "analysis/{run_name}/3-generate-fragment-lib/barcode-variant-table.tsv"
+    "analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-variant-table.tsv"
   conda:
     "env/env.variant-db.yaml"
   threads:1
@@ -285,16 +306,16 @@ rule create_variant_table:
 
 rule create_mutation_database:
   input:
-    bam="analysis/{run_name}/3-generate-fragment-lib/collapsed-fragments.bam",
-    variant_table="analysis/{run_name}/3-generate-fragment-lib/barcode-variant-table.tsv"
+    bam="analysis/{run_name}/3-generate-fragment-lib/{seq_type}.collapsed-fragments.bam",
+    variant_table="analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-variant-table.tsv"
   output:
-    "analysis/{run_name}/3-generate-fragment-lib/{sample_name}.barcode-allele.tsv"
+    "analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-allele.tsv"
   conda:
     "env/env.variant-db.yaml"
   params:
     bed=config["capture_bed"]
   log: 
-    "logs/{run_name}/{sample_name}.3-mutation-database.log"
+    "logs/{run_name}/{seq_type}.3-mutation-database.log"
   threads:1
   shell:
     """
@@ -320,20 +341,25 @@ rule mrna_quantification_startpos:
     samtools sort -@{threads} -m10G {output.bam} > {output.sortedbam}
     samtools index {output.sortedbam}
     """
-# rule NB
-# shell:
-# 	"""
-# 	python3 allele_specific_enhancer_activity.py \
-#     --dna=yi-results-new/startposcounts.SNP_CL.txt \
-#     --rna=yi-results-new/startposcounts.SNPR1_48.txt,yi-results-new/startposcounts.SNPR2_48.txt,yi-results-new/startposcounts.SNPR3_48.txt \
-#     --barcode_allele=yi-results-new/barcode-allele.tsv --output_prefix=48h 
-# 	"""
 
-rule longread_quantification_startpos:
+rule stat_comparison:
+  input:
+    barcode_allele=get_stat_biallele_barcode_allele,
+    annotation=get_snp_annotation,
+    dna=get_stat_biallele_dna,
+    mrna=get_stat_biallele_mrna,
+  output:
+    "analysis/{run_name}/5-bi-allelic-comparisons/{comp_name}.result-table.txt"
+  shell:
+    """
+    echo "dna:{input.dna} mrna:{input.mrna} annotation:{input.annotation} barcode_allele:{input.barcode_allele}" > {output}
+    """
+
+rule misc_longread_quantification_startpos:
   input:
     config["longread_validation"]
   output:
-    "analysis/{run_name}/5-longread/longread-counts.txt"
+    "analysis/{run_name}/misc-longread/longread-counts.txt"
   conda:
     "env/env.mapping.yaml"	
   threads: 16
