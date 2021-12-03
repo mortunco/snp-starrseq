@@ -51,8 +51,6 @@ def generate_results():
   print(results)
   return results
 
-
-
 rule all:
   input: generate_results()
 

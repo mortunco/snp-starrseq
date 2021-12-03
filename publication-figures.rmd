@@ -90,23 +90,13 @@ theme(legend.position = "top",
      text=element_text(size=))+ggsave("../analysis/publication-figures/PCA-capture-region-total-coverage.pdf",width = 8,height = 8)
 ```
 
-### ASYYM - longshort-shortlong  - calib cluster stats
+### ASYM - longshort-shortlong  - calib cluster stats
 ```{r}
 
 ### Asym Target Region Distribution ###
 library(tidyverse)
 library(vroom)
 mylist=list.files("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/1-cluster-consensus/",pattern = "cluster",full.names = T)
-mydf=list()
-for (i in mylist){
-    print(i)
-    data.table::fread(i,sep = "\t",col.names = c("cid","nid","rrow","r1n","r1s","r1q","r2n","r2s","r2q"),nThread = 16) %>% 
-    as_tibble %>% 
-    mutate(sample=gsub(pattern = ".cluster",replacement = "",x = basename(i))) %>% 
-    select(cid,nid,rrow,sample) -> temp    
-    mydf[[i]]=temp
-}
-
 mydf=vroom(mylist,id = "sample",delim = "\t",col_names = c("cid","nid","rrow","r1n","r1s","r1q","r2n","r2s","r2q")) %>% select(cid,nid,rrow,sample) %>% mutate(sample=gsub(pattern = ".cluster",replacement = "",x = basename(sample))) %>% as_tibble
 
 mydf %>% as_tibble %>% group_by(sample,cid) %>% dplyr::count() -> temp
@@ -192,14 +182,14 @@ dev.off()
 library(vroom)
 library(tidyverse)
 library(reshape2)
-h48=vroom('../yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample))) %>% filter(alt_count >=15 & ref_count >=15)
+h48=vroom('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_merged_",replacement = "",x = basename(sample))) %>% filter(alt_count >=15 & ref_count >=15)
 h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
 
-cadd_res = vroom("../analysis/publication-figures/pahthogenecity-testing/cadd-prediction/GRCh37-v1.6_6123ca426476f4eb96fdfaa8519c34fd.tsv",delim = "\t",show_col_types = F) %>% rowwise %>% mutate(event=sprintf("chr%s;%s;%s;%s",Chrom,Pos,Ref,Alt))
+cadd_res = vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis//publication-figures/pahthogenecity-testing/cadd-prediction/GRCh37-v1.6_6123ca426476f4eb96fdfaa8519c34fd.tsv",delim = "\t",show_col_types = F) %>% rowwise %>% mutate(event=sprintf("chr%s;%s;%s;%s",Chrom,Pos,Ref,Alt))
 
 mydf=left_join(h48,cadd_res %>% select(event,RawScore,PHRED),by = "event")
 
-mydf %>% select(SNP,event, ref_count,alt_count,ref_expr,alt_expr,alt_effect,pvalue,RawScore,PHRED) -> mydf
+mydf %>% select(SNP,event, ref_count,alt_count,ref_expr,alt_expr,alt_effect,pvalue,padj,RawScore,PHRED) -> mydf
 
 options(repr.plot.width=6, repr.plot.height=6)
 mydf %>% 
@@ -211,8 +201,19 @@ mydf %>%
     theme(text=element_text(size = 25),legend.position = "top") +
     xlab("48hr Alt Effect ~ log2fc(ALT/WT)")+
     ylab("CADD Score ~ PHRED")+
-    ggsave("../analysis/publication-figures/pathogenecity-dotplot-CADD.pdf",width = 8,height = 8)
+    #ggsave("../analysis/publication-figures/pathogenecity-dotplot-CADD.pdf",width = 8,height = 8)
     NULL
+p<- mydf %>% 
+    ggplot(., aes(-log10(padj),PHRED))+
+    geom_point(shape=21,fill="gray",size=3,alpha=.5)+
+    ggpubr::stat_cor(size=5) +
+    #geom_smooth(method = "lm")+
+    theme_bw()+
+    theme(text=element_text(size = 25),legend.position = "top") +
+    xlab("48hr Event Significance~ -log10(padj)")+
+    ylab("CADD Score ~ PHRED")+
+    NULL
+ggsave(plot=p,"/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis//publication-figures/pathogenecity-dotplot-CADD-padj.pdf",width = 8,height = 8)  
 ```
 ### ncER
 ```{r}
@@ -255,22 +256,22 @@ mydf %>%
     theme(text=element_text(size = 25),legend.position = "top") +
     xlab("48hr Alt Effect ~ log2fc(ALT/WT)")+
     ylab("ncER ~ Essentiality Score")+
-    ggsave("../analysis/publication-figures/pathogenecity-dotplot-ncER-alt_effect.pdf",width = 8,height = 8)+
+    ggsave("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/pathogenecity-dotplot-ncER-alt_effect.pdf",width = 8,height = 8)+
     NULL
 
 
 options(repr.plot.width=6, repr.plot.height=6)
-mydf %>% 
+p<-mydf %>% 
     ggplot(., aes(-log10(padj),nc_score))+
-    geom_point()+
-    ggpubr::stat_cor() +
-    theme_bw()+
+    geom_point(shape=21,fill="gray",size=3,alpha=.5)+
+    ggpubr::stat_cor(size=5) +
     #geom_smooth(method = "lm")+
-    theme(text=element_text(size = 20),legend.position = "top") +
-    xlab("48hr Event Significance~ -log10(padj)")+
+    theme_bw()+
+    theme(text=element_text(size = 25),legend.position = "top") +
+    xlab("48hr Event Significance ~ -log10(padj)")+
     ylab("ncER ~ Essentiality Score")+
-    ggsave("../analysis/publication-figures/pathogenecity-dotplot-ncER-padj.pdf",width = 6,height = 6)+
     NULL
+ggsave(plot=p,filename="/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/pathogenecity-dotplot-ncER-padj.pdf",width = 8,height = 8)
 ```
 ### DeltaSVM 
 ```{r}
@@ -297,7 +298,7 @@ mydf %>%
     theme(text=element_text(size = 20),legend.position = "top") +
     theme_classic()+
     xlab("deltaSVM score > 4")+
-    ylab("48hr Alt Effect ~ -log10(padj)")+
+    xlab("48hr Alt Effect ~ log2fc(ALT/WT)")+
     ggsave("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures//pathogenecity-boxplot-deltaSVM-alteffect.pdf",width = 6,height = 6)+
     NULL
 
@@ -317,20 +318,22 @@ mydf %>%
 
 
 options(repr.plot.width=6, repr.plot.height=6)
-mydf %>% 
+p<-mydf %>% 
     ggplot(., aes(deltaSVMscore,-log10(pvalue)))+
-    geom_point()+
-    ggpubr::stat_cor() +
-    theme_bw()+
+    geom_point(shape=21,fill="gray",size=3,alpha=.5)+
+    ggpubr::stat_cor(size=5) +
     #geom_smooth(method = "lm")+
-    theme(text=element_text(size = 20),legend.position = "top") +
-    xlab("48hr Alt Effect ~ -log10(pvalue)")+
+    theme_bw()+
+    theme(text=element_text(size = 25),legend.position = "top") +
+    xlab("48hr Event Significance ~ -log10(pvalue)")+
     ylab("DeltaSVM ~ Essentiality Score")+
-    ggsave("../analysis/publication-figures/pathogenecity-dotplot-deltaSVM-padj.pdf",width = 8,height = 8)+
+    #ggsave("../analysis/publication-figures/pathogenecity-dotplot-deltaSVM-padj.pdf",width = 8,height = 8)+
     NULL
+
+ggsave(plot=p,filename="/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/pathogenecity-dotplot-deltaSVM-padj.pdf",width = 8,height = 8)
 ```
 
-## Clinical Data Comparison
+## in-vivo data comparison
 ```{r}
 library(tidyverse)
 library(ggpubr)
@@ -410,6 +413,7 @@ temp %>%
   rowwise %>% mutate(x= sum(c(!is.na(ar),!is.na(atac),!is.na(hk))) >= 3) %>% filter(x) %>%
   pull(RSID) -> example_rsid
 
+
 for (i in example_rsid){
   mydf %>%
     filter(RSID == i) %>%
@@ -456,7 +460,7 @@ for (category in c('all SNP', 'p < 0.05')){
         plot_df = rbind(plot_df, sub_plot_df)
     }
 }
-
+#sheet_write(data=plot_df,ss = gs4_create("snpstarrseq-sup-invivo-comp"))
 options(repr.plot.height = 10, repr.plot.width = 10)
 xy_limit <- plot_df %>% dplyr::select(starrseq_alt_freq, chipseq_alt_freq) %>%range()
 plot_df$chipseq <- factor(plot_df$chipseq, levels = c('H3K27ac', 'AR', 'ATAC'))
@@ -464,7 +468,6 @@ p <- ggplot(plot_df, aes(x = starrseq_alt_freq, y = chipseq_alt_freq )) +
     geom_point(size=4,pch=21,fill="gray",alpha=0.7) +
         xlab('Alt AF in snpSTARRseq') +
         ylab('Alt AF in ChIPseq') +
-
     theme_bw(base_size = 20) +
     geom_hline(yintercept = 0.5, color = 'blue', linetype = 'dashed') +
     geom_vline(xintercept = 0.5, color = 'blue', linetype = 'dashed') +
