@@ -186,6 +186,27 @@ analysis/
 ```
 ## Visualisation
 Lorem ipsum
+
+## Annotation file for RSids.
+5th step of our pipeline calculates bi-allelic activity of each SNP with our novel NBR method. To include RSid (rsXXX) for the events our analysis code requires annotation file which is consisted two column such as 1-base genomic position with chr:pos (**no chr**) and RS snp id (rsXXX). We shared dbsnp150 common VCF annotation for hg19/grch37 and grch38 genomes in our repository. But any user specific VCF could be used for this procedure if other annotation is neccasary.
+
+```
+# for example, common VCF file from dbsnp150
+wget https://ftp.ncbi.nih.gov/snp/organisms/human_9606_b150_GRCh38p7/VCF/00-common_all.vcf.gz -O common_all.dbsnp150.grch38.vcf.gz
+zcat common_all.dbsnp150.grch38.vcf.gz | grep -v "#" | cut -f 1-3 | awk '{print $1 ":" $2 "\t" $3}' > dbsnp150.grch38.snp
+
+$head dbsnp150.grch38.snp
+1:10177 rs367896724
+1:10352 rs555500075
+1:10352 rs145072688
+1:10616 rs376342519
+1:10642 rs558604819
+1:11008 rs575272151
+1:11012 rs544419019
+1:11063 rs561109771
+1:13110 rs540538026
+```
+
 ## Publication
 TBD
 ## Contant and Support
