@@ -11,20 +11,23 @@ def get_replicates(wildcards):
 
 def get_snp_annotation(wildcards):
   if config["snp_annotation"] == "" or "snp_annotation" not in config:
-    return(config["snp_annotation"])
+    return("noannot")
   else:
     return(config["snp_annotation"])
 
+def get_min_count(wildcards):
+  if config["bi_allelic_NBR_mincount"] == "" or "bi_allelic_NBR_mincount" not in config:
+    return(15)
+  else:
+    return(config["bi_allelic_NBR_mincount"])
+
 def get_stat_biallele_barcode_allele(wildcards):
-  print('analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-allele.tsv'.format(run_name=config["run_name"],seq_type=list(config["fragment_retreival"].keys())[0]) )
   return('analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-allele.tsv'.format(run_name=config["run_name"],seq_type=list(config["fragment_retreival"].keys())[0]) )
 
 def get_stat_biallele_mrna(wildcards):
-  print(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"]))
-  return(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"]))
+  return(",".join(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"])))
 
 def get_stat_biallele_dna(wildcards):
-  print(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["dna"]))
   return(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["dna"]))
 
 def get_mrna_r1(wildcards):
@@ -343,21 +346,31 @@ rule mrna_quantification_startpos:
 rule stat_comparison:
   input:
     barcode_allele=get_stat_biallele_barcode_allele,
-    annotation=get_snp_annotation,
     dna=get_stat_biallele_dna,
     mrna=get_stat_biallele_mrna,
   output:
     "analysis/{run_name}/5-bi-allelic-comparisons/{comp_name}.result-table.txt"
+  params:
+    annotation=get_snp_annotation,
+    min_count=get_min_count
+  conda:
+    "env/env.NBR.yaml"
   shell:
     """
-    echo "dna:{input.dna} mrna:{input.mrna} annotation:{input.annotation} barcode_allele:{input.barcode_allele}" > {output}
+    Rscript ./code/snp-starrseq/bi-allelic-NBR.R \
+      --dna={input.dna} \
+      --mrna={input.mrna} \
+      --barcode_allele={input.barcode_allele} \
+      --output={output} \
+      --annotation={params.annotation} \
+      --min_count={params.min_count}
     """
 
 rule misc_longread_quantification_startpos:
   input:
     config["longread_validation"]
   output:
-    "analysis/{run_name}/misc-longread/longread-counts.txt"
+    "analysis/{run_name}/misc/longread-counts.txt"
   conda:
     "env/env.mapping.yaml"	
   threads: 16

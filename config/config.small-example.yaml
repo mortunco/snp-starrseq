@@ -10,10 +10,10 @@ parts:
   10
 longread_adaptor:
   "/groups/lackgrp/projects/inv-longread-snpstarrseq/analysis/ccs-mapping/tidy-analysis/adaptor-sequence.fa"
-
 snp_annotation:
-  "/groups/lackgrp/projects/inv-longread-snpstarrseq/analysis/ccs-mapping/tidy-analysis/adaptor-sequence.fa"
-
+  "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/dbsnp150.hg19.chr6.snp.gz"
+bi_allelic_NBR_mincount:
+  5
 capture_bed:
   "/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/snp-genotyping/mutation/total500.bed"
 
