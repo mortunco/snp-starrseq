@@ -25,15 +25,24 @@ def get_stat_biallele_barcode_allele(wildcards):
   return('analysis/{run_name}/3-generate-fragment-lib/{seq_type}.barcode-allele.tsv'.format(run_name=config["run_name"],seq_type=list(config["fragment_retreival"].keys())[0]) )
 
 def get_stat_biallele_mrna(wildcards):
+  return(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"]))
+
+def get_stat_biallele_mrna2(wildcards): ## this function is here to make snakemake work but output with better formatting for argparse 
   return(",".join(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"])))
+
+def get_stat_biallele_mrna_vis(wildcards):
+  return(expand("analysis/{rn}/4-symmetric-barcode-quantification/{x}.vis-info",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"]))
+
+def get_stat_biallele_mrna_vis2(wildcards): ## this function is here to trick snakemake work but output with better formatting for argparse.
+  return(",".join(expand("analysis/{rn}/4-symmetric-barcode-quantification/{x}.vis-info",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["mrna"])))
 
 def get_stat_biallele_dna(wildcards):
   return(expand("analysis/{rn}/4-symmetric-barcode-quantification/startposcounts.{x}.txt",rn=config["run_name"],x=config["bi_allelic_comparisons"][wildcards.comp_name]["dna"]))
 
 def get_mrna_r1(wildcards):
-  return(expand("{x}",x=config["quantification"][wildcards.mrna_sample]["r1"] ))
+  return(expand("{x}",x=config["quantification"][wildcards.mrna_sample]["r1"]))
 def get_mrna_r2(wildcards):
-  return(expand("{x}",x=config["quantification"][wildcards.mrna_sample]["r2"] ))
+  return(expand("{x}",x=config["quantification"][wildcards.mrna_sample]["r2"]))
 
 def generate_results():
   results=[]
@@ -51,7 +60,7 @@ def generate_results():
   if config["bi_allelic_comparisons"] != "" and "bi_allelic_comparisons" in config:
     for comp_name,values in config["bi_allelic_comparisons"].items():
       results.append(f'analysis/{run_name}/5-bi-allelic-comparisons/{comp_name}.result-table.txt')
-  print(results)
+      results.append(f'analysis/{run_name}/6-vis/{comp_name}/vis-done')
   return results
 
 rule all:
@@ -329,7 +338,7 @@ rule mrna_quantification_startpos:
   output:
     countx="analysis/{run_name}/4-symmetric-barcode-quantification/startposcounts.{mrna_sample}.txt",
     bam="analysis/{run_name}/4-symmetric-barcode-quantification/{mrna_sample}.bam",
-    sortedbam="analysis/{run_name}/4-symmetric-barcode-quantification/{mrna_sample}.sorted.bam"
+    vis="analysis/{run_name}/4-symmetric-barcode-quantification/{mrna_sample}.vis-info"
   conda:
     "env/env.mapping.yaml"	
   params:
@@ -337,33 +346,54 @@ rule mrna_quantification_startpos:
   threads:16
   shell:
     """
-    bwa mem -t{threads} {params} {input.r1} {input.r2} | samtools view -Sb > {output.bam}
-    samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - | cut -f 1 | sort -T . --parallel={threads} | uniq -c | awk '{{print $1,$2}}' > {output.countx}
-    samtools sort -@{threads} -m10G {output.bam} > {output.sortedbam}
-    samtools index {output.sortedbam}
+    bwa mem -t{threads} {params} {input.r1} {input.r2} | samtools view -Sb > {output.bam};
+    samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - > {output.vis};
+    cut -f 1 {output.vis} | sort -T . --parallel={threads} | uniq -c | awk '{{print $1,$2}}' > {output.countx}
     """
 
 rule stat_comparison:
   input:
-    barcode_allele=get_stat_biallele_barcode_allele,
+    barcode_allele=get_stat_biallele_barcode_allele, 
     dna=get_stat_biallele_dna,
-    mrna=get_stat_biallele_mrna,
+    mrna=get_stat_biallele_mrna
   output:
     "analysis/{run_name}/5-bi-allelic-comparisons/{comp_name}.result-table.txt"
   params:
     annotation=get_snp_annotation,
-    min_count=get_min_count
+    min_count=get_min_count,
+    mrna_formatted=get_stat_biallele_mrna2
   conda:
     "env/env.NBR.yaml"
   shell:
     """
     Rscript ./code/snp-starrseq/bi-allelic-NBR.R \
       --dna={input.dna} \
-      --mrna={input.mrna} \
+      --mrna={params.mrna_formatted} \
       --barcode_allele={input.barcode_allele} \
       --output={output} \
       --annotation={params.annotation} \
       --min_count={params.min_count}
+    """
+
+rule vis_data:
+  input:
+    barcode_allele=get_stat_biallele_barcode_allele,
+    mrna=get_stat_biallele_mrna_vis,
+    restable="analysis/{run_name}/5-bi-allelic-comparisons/{comp_name}.result-table.txt"
+  output:
+    "analysis/{run_name}/6-vis/{comp_name}/vis-done"
+  params:
+    genome=config["bwa_ref"],
+    mrna_formatted=get_stat_biallele_mrna_vis2
+  conda:
+    "env/env.vis.yaml"
+  shell:
+    """
+    python code/snp-starrseq/generate-tracks-bi-allelic.py \
+      -i {params.mrna_formatted} \
+      -r {input.restable} \
+      -b {input.barcode_allele} \
+      -g {params.genome} -o analysis/{wildcards.run_name}/6-vis/{wildcards.comp_name} > {output}  
     """
 
 rule misc_longread_quantification_startpos:

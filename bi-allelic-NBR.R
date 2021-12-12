@@ -119,7 +119,7 @@ if (!is.null(parser$annotation) | parser$annotation != "noannot"){
     #snp_info = read_tsv(parser$annotation, col_name = c('SNP', 'EVENT', 'G5', 'ORIGINAL'), col_type = 'cccc')
     #result_df %>% left_join(snp_info, by = c('event'='EVENT'))%>% relocate(SNP))
 
-    right_join(result_df, snp_info,by="snpindex") %>% dplyr::select(-snpindex) %>% dplyr::relocate(SNP) -> result_df
+    left_join(result_df, snp_info,by="snpindex") %>% dplyr::select(-snpindex) %>% dplyr::relocate(SNP) -> result_df
 }
 ### multiple-hypothesis correction
 if (nrow(result_df) ==0){
