@@ -620,7 +620,23 @@ library(vroom)
 library(tidyverse)
 library(reshape2)
 library(googlesheets4) 
-library(googlesheets) 
+
+### need significant events that PCA specific.
+### snpstarreq bi-allelic event ###
+h24=vroom('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_24h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_",replacement = "",x = basename(sample)))
+h24 = h24 %>% filter(alt_count >=15 & ref_count >=15) 
+h24$padj=p.adjust(h24$pvalue,method = "fdr",n = nrow(h24))
+
+h48=vroom('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_",replacement = "",x = basename(sample)))
+h48 = h48 %>%  filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+
+h72=vroom('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_72h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_",replacement = "",x = basename(sample)))
+h72 = h72 %>% filter(alt_count >=15 & ref_count >=15) 
+h72$padj=p.adjust(h72$pvalue,method = "fdr",n = nrow(h72))
+
+mydf=rbind.data.frame(h24,h48,h72)
+mydf %>% filter(pvalue < 0.05 & ORIGINAL == "original") %>% select(SNP,event) %>% distinct %>% rowwise %>% mutate(x=paste(event,SNP,sep="_")) %>% pull(x) -> OG_pca
 
 snplist=vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/308.bed",col_names=F)
 loop_gene=vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/closest-gene-analysis/hichip-gene.txt",col_names=F) %>% 
@@ -637,6 +653,7 @@ loop_snp= loop_snp %>% mutate(sig= X9 %in% nom_sig)
 claudia_genes=vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/closest-gene-analysis/claudia-eqtl-genes.txt",col_names=F,delim="\t") %>% pull(X1)
 
 loop_snp %>% mutate(claudia = gene %in% claudia_genes)-> loop_snp
+loop_snp %>% mutate(OG_PCA= X9 %in% OG_pca) -> loop_snp
 
 ### Genes that are significant 
 loop_snp %>% filter(sig) %>% pull(gene) %>% unique %>% length #307
@@ -644,8 +661,9 @@ loop_snp %>% filter(sig) %>% pull(gene) %>% unique %>% length #307
 loop_snp %>% filter(sig & claudia) %>% pull(gene) %>% unique %>% length    #24
 ### number of events overlap with hichip paper eqtl list.
 loop_snp %>% filter(sig & claudia) %>% pull(X9) %>% unique  
-
-#sheet_write(data=loop_snp,ss = gs4_create("snpstarrseq-sup-snp-gene"))
+### number of events overlap with hichip paper eqtl list AND also PCA risk associated snp
+loop_snp %>% filter(sig & claudia & OG_PCA) %>% pull(X9) %>% unique  
+sheet_write(data=loop_snp,ss = gs4_create("snpstarrseq-sup-snp-gene"))
 ```
 
 ## Bi-allelic Scatter 24/48/72
@@ -788,8 +806,63 @@ h72$padj=p.adjust(h72$pvalue,method = "fdr",n = nrow(h72))
 mydf=rbind.data.frame(h24,h48,h72)
 
 mydf %>% filter(pvalue <= 0.05) %>% pull(event) %>% unique -> common_events_nom
-mydf %>% filter(event %in% common_events_nom & pvalue <= 0.05 ) %>% group_by(event) %>% slice_max(abs(alt_effect)) %>% arrange(desc(abs(alt_effect))) -> temp
+mydf %>% filter(event %in% common_events_nom & pvalue <= 0.05 ) %>% group_by(event) %>% sli ce_max(abs(alt_effect)) %>% arrange(desc(abs(alt_effect))) -> temp
 
 mydf %>% filter(padj <= 0.05) %>% pull(event) %>% unique -> common_events_FDR
 mydf %>% filter(event %in% common_events_FDR & padj <= 0.05 ) %>% group_by(event) %>% slice_max(abs(alt_effect)) %>% arrange(desc(abs(alt_effect))) -> temp
 ```
+
+### 
+```{r}
+library(vroom)
+library(tidyverse)
+h48=vroom('/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt',delim = "\t",show_col_types = FALSE,id = "sample")  %>% mutate(sample=gsub(pattern ="raw_results_",replacement = "",x = basename(sample)))
+h48 = h48 %>%  filter(alt_count >=15 & ref_count >=15)
+h48$padj=p.adjust(h48$pvalue,method = "fdr",n = nrow(h48))
+
+bal = vroom("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/3-generate-fragment-lib/barcode-allele.tsv",delim="\t",num_threads=16) %>% select(-fragment_name)
+bal %>% filter(mutation %in% h48$event)  -> bal
+
+### number of unique allele count based on barcode allele
+h48 %>% summary
+bal %>% group_by(mutation) %>% dplyr::count(type) %>% group_by(type) %>% summarize(x=median(n))
+
+### read coun tables ###
+mylist=c("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/4-symmetric-barcode-quantification/startposcounts.SNP_CL.txt",
+"/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/4-symmetric-barcode-quantification/startposcounts.SNPR1_48.txt",
+"/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/4-symmetric-barcode-quantification/startposcounts.SNPR2_48.txt",
+"/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-strict/4-symmetric-barcode-quantification/startposcounts.SNPR3_48.txt")
+count_table = vroom(mylist,delim=" ",num_threads=50,id="sample",col_names=c("count","index"))
+count_table$sample = basename(count_table$sample)
+### get overlapping counts ###
+count_table %>% filter(index %in% bal$start_aln_UMI) -> count_table
+count_table %>% reshape2::dcast(., formula= index ~ sample, value.var="count",fill=0) -> count_table
+
+### ssumm 48_1 48_2 48_3
+count_table %>% rowwise() %>% mutate(sum_x=`startposcounts.SNPR1_48.txt`+`startposcounts.SNPR2_48.txt`+`startposcounts.SNPR3_48.txt`) %>% rename(lib = `startposcounts.SNP_CL.txt` ) %>% select(index,lib,sum_x) ->count_table
+
+count_table=left_join(count_table, bal, by=c("index"= "start_aln_UMI"))
+
+### Total Reads per SNP (WT + VAR summed up) ###
+count_table %>% 
+    group_by(mutation) %>% 
+    summarize(lib=sum(lib),sum_x=sum(sum_x)) %>% summary()
+
+### the plot.
+p <- count_table %>% 
+    group_by(mutation) %>% 
+    summarize(lib=sum(lib),sum_x=sum(sum_x)) %>% 
+    ggplot(.,aes(log2(sum_x))) + 
+        geom_histogram() + 
+        scale_x_continuous(breaks=scales::pretty_breaks(8)) +
+        theme_bw(base_size=20)+
+        theme(legend.position = "none",panel.grid.major = element_blank(), panel.grid.minor = element_blank())+
+        xlab("Total Reads per SNP(WT+VAR) across 308 SNPs")+
+        ylab("Count")+
+        NULL
+ggsave(plot=p,filename="/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/publication-figures/SNP_plasmid_read_coverage.pdf",height = 4,width = 8)
+```
+
+
+
+
