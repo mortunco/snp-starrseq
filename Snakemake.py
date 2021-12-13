@@ -1,8 +1,24 @@
-# def get_replicates(wildcards):
-#   if wildcards.seqtype == "pb":
-#     return(expand("{x}",x=config["fragment_retreival"][wildcards.seqtype][wildcards.sample_name][wildcards.direction]))
-#   else:
-#     return(expand("{x}",x=config["fragment_retreival"][wildcards.seqtype][wildcards.sample_name][wildcards.direction]))
+
+### snakemake checkes config parameters to be defined despite they are used in the run. 
+### Following lines check and fill those variable if they are not used to prevent error.
+
+if list(config["fragment_retreival"].keys())[0] == "pb": ### means this is a pacbio based run
+  if config["smrttools_full_path"] == "" or "smrttools_full_path" not in config:
+    raise ValueError('Reconstruction of fragments are based on Pacbio reads but SMRTtools path (smrttools_full_path) is not defined')
+  if config["parts"] == "" or "parts" not in config:
+    raise ValueError('Reconstruction of fragments are based on Pacbio reads but number of parallel parts (parts) is not defined')
+  if config["longread_adaptor"] == "" or "longread_adaptor" not in config:
+    raise ValueError('Reconstruction of fragments are based on Pacbio reads but long reads adaptors (longread_adaptor) is not defined')
+else: ### means this is an asymmetrical read based run.
+  config["smrttools_full_path"]=""
+  config["parts"]=10
+  config["longread_adaptor"]=""
+  if config["calib_params"] == "" or "calib_params" not in config: 
+    raise ValueError('Reconstruction of fragments are based on asymmetrical reads but calib (calib_params) clustering parameters are not defined')
+    if config["longread_validation"] == "" or "longread_validation" not in config:
+      config["longread_validation"]== ""
+      print(f'Reconstructed fragment confirmation with respect to Pacbio CCS wont be executed.')
+    
 def get_replicates(wildcards):
   if list(config["fragment_retreival"].keys())[0] == "pb":
     return(config["fragment_retreival"]["pb"]["reads"])
