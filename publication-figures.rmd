@@ -398,7 +398,7 @@ mydf %>%
 mydf %>%
   filter(RSID %in% common_events_nom) %>%
   reshape2::dcast(RSID~sample, value.var = "af",fun.aggregate = NULL) %>%
-  rowwise() %>%  filter(!is.na(st) & !all(c(is.na(ar),is.na(hk),is.na(atac)))) %>%
+  rowwise() %>%  filter(!is.na(st) & h!all(c(is.na(ar),is.na(hk),is.na(atac)))) %>%
   data.table::melt(., id.vars=c("RSID","st")) ->  temp
 temp %>% filter(!is.na(value)) %>% count(RSID) %>% pull(n) %>% table()
 #####

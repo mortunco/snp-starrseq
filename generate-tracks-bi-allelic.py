@@ -35,7 +35,8 @@ args = parser.parse_args()
 output_dir = args.output_dir
 #  output_dir = "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/temp"
 pybed.helpers.set_tempdir("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/temp")
-# 1 for WT , 2 for VAR 
+
+# Barcode allale file containts fragment index to SNP. Type column is either 1 for WT , 2 for VAR 
 # start_aln_UMI   fragment_name   mutation        type
 # chr6:109321504-GGAATC   GGAGTAGTAATAACTGTAAAGATC        chr6;109321800;T;C      1
 # chr6:109321541-GTAATC   GATCTCATAAGTTTACAGCACTAC        chr6;109321800;T;C      1
