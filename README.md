@@ -9,32 +9,35 @@
 
 ## Installation
 
-### create a project directory and its sub-structures.
+### 1. Create a project directory and its sub-structures.
 ```
 mkdir test && mkdir test/code && mkdir test/analysis && mkdir test/raw-data && mkdir test/code
 cd test/code ## and enter the code directory under test
 ```
 
-### clone neccesary repositories
+### 2. Clone following repositories
 ```
 git clone https://github.com/mortunco/snp-starrseq.git
 git clone -b v0.3.4 https://github.com/vpc-ccg/calib.git
 ```
 
-### copy example data to raw-data and untar 
+### 3. Copy example data to raw-data and untar 
 ```
 cp data/small-realdata.tar.gz ../../raw-data/
 tar xvf small-realdata.tar.gz
 ```
 
-### create environment for calib
+### 4. Create environment for calib
 ```
 conda env create --file snp-starrseq/env/env.calib.yaml
 exit # to reset variables.
 ```
-### start new terminal ###
+
+### 5. Build Calib from source. 
+Our pipeline requires Calib for asymmetric sequencing fragmant reconstruction. 
 ```
-cd go/to/your/test`
+exit ### Start a new terminal 
+cd go/to/your/test
 conda activate calib-v3.4
 export CPATH=${CONDA_PREFIX}/include
 make ## compiles calib
@@ -96,23 +99,24 @@ Calib's paramters arguments:
 conda create -c bioconda -n snakemake snakemake_env
 ```
 
-## Running Pamir Example
+## Running Small Example
 ### Dry run to test & Run the small test data analysis 
 ```
 conda activate snakemake_env 
 cd go/to/your/test
 snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfile code/snp-starrseq/config/config.small-example.yaml -p -n
 snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfile code/snp-starrseq/config/config.small-example.yaml -p
+
 ```
 ## Configuration
-Our pipeline needs a config file for execution. It is recommended to create a separate config file for each analysis to have reproducibility. Following options were are in configuration file. Argument names with * are not optional, they are mandatory. Please see the config/config.yaml for example run.
+Our pipeline needs a config file for execution. It is recommended to create a separate config file for each analysis for reproducibility. Following options were are in configuration file. Argument names with * are not optional, they are mandatory. Please see the config.small-example.yaml for example run. Manuscript data could be reproduced by config.full-calibstrict.yaml
 
 | Name               | Description                                                   |
 |--------------------|---------------------------------------------------------------|
 | run_name*           | name of the run                                               |
 | bwa_ref*            | Path to BWA index files                                       |
 | calib_params*       | Calib's clustering module parameters                          |
-| asym_samples*       | Path to asymmetric samples.                                   |
+| fragment_retreival*       | Path to asymmetric samples.                                   |
 |                    | Fastq files must be in zipped format.                         |
 |                    | In case of replicates, use "," to merge.                      |
 |                    | For example,                                                  |
