@@ -187,8 +187,8 @@ rule asym_pre_collapse_trim:
     clust_r1="analysis/{run_name}/2-match-reads/asym.clustered.r1.fastq",
     clust_r2="analysis/{run_name}/2-match-reads/asym.clustered.r2.fastq"
   output:
-    trim_r1="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r1.fastq",
-    trim_r2="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r2.fastq",
+    trim_r1=temp("analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r1.fastq"),
+    trim_r2=temp("analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r2.fastq"),
   conda:
     "env/env.seqtk.yaml"
   threads:1
@@ -200,8 +200,8 @@ rule asym_pre_collapse_trim:
 
 rule asym_collapse_fragments:
   input:
-    trim_r1="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r1.fastq",
-    trim_r2="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r2.fastq",
+    trim_r1=temp("analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r1.fastq"),
+    trim_r2=temp("analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r2.fastq"),
   output:
     collapsed=temp("analysis/{run_name}/3-generate-fragment-lib/asym.collapsed-fragments.fastq")
   conda: 
