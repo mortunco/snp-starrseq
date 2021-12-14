@@ -46,7 +46,7 @@ make -C consensus/ # compiles calib's consensus module
 
 Once calib is compiled we dont need this environment. Calib and consensus should return the following.
 ```
-(calib-x) [tmorova@linuxsrv006 calib]$ ./calib
+(calib-env)$ ./calib
 Combined barcode lengths must be a positive integer and each mate barcode length must be non-negative! Note if both mates have the same barcode length you can use -l/--barcode-length parameter instead.
 Calib: Clustering without alignment using LSH and MinHashing of barcoded reads
 Usage: calib [--PARAMETER VALUE]
@@ -71,7 +71,7 @@ Calib's paramters arguments:
 ```
 
 ```
-(calib-x) [tmorova@linuxsrv006 calib]$ ./consensus/calib_cons
+(calib-env)$ ./consensus/calib_cons
 No cluster filename was passed.
 Calib Consensus: Generating consensus sequence from Calib clusters.
 Usage: calib_cons [--PARAMETER VALUE]
@@ -94,7 +94,7 @@ Calib's paramters arguments:
   -h  --help
 ```
 
-### Create a new environment for snakemake. You can skip this step if you have one.
+### Create a new environment for snakemake (version >= 6.4.1) You can skip this step if you have one.
 ```
 conda create -c bioconda -n snakemake snakemake_env
 ```
@@ -109,87 +109,96 @@ snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfil
 
 ```
 ## Configuration
-Our pipeline needs a config file for execution. It is recommended to create a separate config file for each analysis for reproducibility. Following options were are in configuration file. Argument names with * are not optional, they are mandatory. Please see the config.small-example.yaml for example run. Manuscript data could be reproduced by config.full-calibstrict.yaml
+Our pipeline needs a config file for execution. It is recommended to create a separate config file for each analysis for reproducibility. Example config file shared in the `config/config.small-example.yaml` with descriptions. Manuscript data could be reproduced by `config/full-calibstrict.yaml`. Mandatory/optional fields are also referred in the `config/small-example.yaml`.
 
-| Name               | Description                                                   |
-|--------------------|---------------------------------------------------------------|
-| run_name*           | name of the run                                               |
-| bwa_ref*            | Path to BWA index files                                       |
-| calib_params*       | Calib's clustering module parameters                          |
-| fragment_retreival*       | Path to asymmetric samples.                                   |
-|                    | Fastq files must be in zipped format.                         |
-|                    | In case of replicates, use "," to merge.                      |
-|                    | For example,                                                  |
-|                    | r1: ["a.r1.fastq","b.r2.fastq"]                               |
-|                    | r2: ["a.r2.fastq","b.r2.fastq"]                               |
-| capture_bed*        | STARRseq Capture Regions in BED format.                       |
-| symmetric _samples | Path to symmteric samples.                                    |
-|                    | Exteded options are same as asymmetric.                       |
-| longread_samples   | Path to longread bam file.                                    |
-|                    | Must be mapping to same the reference genome as other samples |
 
 ## Output File Definitions
 Our basic file structure is as follows. There are 4 main steps;
 - In step 1, we cluster and generate consensus sequences from asymmetric reads.
-- - longshort/shortlong.cluster --> Calib cluster output which contains cluster number and read information. 
-- - conx.longshort/shortlong.rX.fastq --> Calib consensus output which contains consensus sequence of all clusters which =>2 members.
-- - merged.rX.fastq --> We merge longshort/shortlongs r1 and r2 in two separate files for `2-read-matching` step.
+- - asym.shortlong/shortlong.cluster --> Calib cluster output from independent asymmteric sequnecing runs which contain cluster number and read information.
+- - asym.cons.longshort/shortlong.rX.fastq --> Calib consensus output from independent asymmteric sequnecing runs which contain consensus sequence of all clusters which =>2 members.
+- - asym.merged.rX.fastq --> We merge longshort/shortlongs r1 and r2 in two separate files for `2-read-matching` step.
 - In step 2, we match long mates of the two asymmeric runs using 24 bp barcodes. 
 - - (5' ~ 3bp UMI - 9 bp Fragment Sequence - ... - 9 bp Fragment Sequence - 3bp UMI ~ 3')
-- - master-barcode-cid.txt --> Master table that contains information of each unique fragment. There are possible three outcomes, clustered means fragments are present in both (longshort/shortlong) runs. Orphan means fragment is found only in single run (one of longshort/shortlong). Problematic ones such as multiple and same same were cases that same barcodes was found by different fragments in the single run. In our benchmark this rate was <%1 therefore, we dump those reads to a file for further investigation.
+- - asym.master-barcode-cid.txt --> Master table that contains information of each unique fragment. There are possible three outcomes, clustered means fragments are present in both (longshort/shortlong) runs. Orphan means fragment is found only in single run (one of longshort/shortlong). Problematic ones such as multiple and same same were cases that same barcodes was found by different fragments in the single run. In our benchmark this rate was <%1 therefore, we dump those reads to a file for further investigation.
 - In step 3, we collapsed matched long asymmetric reads and retreive enhancer fragments.
-- - trimmed.clustered.rX.fastq --> Bad quality sequences and N bases were trimmed from clustered reads (check previous section).
-- - collapsed-fragments.bam/fastq --> As a result of the collapsing process, this file contains sucessfully collapsed fragments reference genome alignment and reads. 
-- - barcode-variant-table.tsv --> This file contains all mismatches/indels on the collapsed fragments with respect to reference genome.
-- - barcode-allele.tsv --> From the previous file, we annotate each collapsed fragment whether they support alternative allele and WT allele. Only SNP events that are located in `capture_bed` bed file were considered.
+- - asym/pb.collapsed-fragments.bam/fastq --> As a result of the collapsing process, this file contains sucessfully collapsed fragments reference genome alignment and reads. If pacbio method is pb prefix is used.
+- - asym/pb.barcode-variant-table.tsv --> This file contains all mismatches/indels on the collapsed fragments with respect to reference genome. If pacbio method is used. pb prefix is used.
+- - asym/pb.barcode-allele.tsv --> From the previous file, we annotate each collapsed fragment whether they support alternative allele and WT allele. Only SNP events that are located in `capture_bed` bed file were considered. If pacbio method is used. pb prefix is used.
 - In step 4, we quantify barcode counts from symmterical starrseq data. (optional)
 - - samplename[481/lib].bam --> For each symmetric sample, we initially map reads to the reference genome.
-- - samplename[481/lib].sorted.bam --> sorted by position.
+- - samplename[481/lib].vis-info --> File contains enhancer fragment index, enhancer fragment position and supporting symmetrical short read name. This information is required for visualisation process.
 - - startposcounts.samplename[481/lib].txt --> for each file, using the alignment files we generate index (startpos:6bpUMI) for each read and quantify the occurance in the sample. These indexes should be concordant with the indexes from asymmetric section of the analysis.
-- In step 5, unique fragments library can also be retreived from long-read sequences (Pacbio?).
-- - longread-counts.txt --> For validation purposes, we sequenced our plasmid library with Pacbio CCS reads. Similar to symmetrical samples, we generate index for each alignment (which > mapq2 and not supplementary) and quantify the number of the occurances.
+- In step 5, we calculate bi-allelic activity of SNPs based on the change in the enhancer fragments. 
+- - comparison.result-table.txt --> Containts output for each different comparison that was inputted in the config file.
+- In step 6, we generate two separate bedgraph files for WT and VAR alleles for those signifcant SNPs in each comparison. 
+- - comp_a/SNPid_chr-pos-ref-alt.WT/VAR.bedGraph --> Each SNP will get a pair of bedGraph files normalized by unique plasmid count.
+- - vis-done --> indicated all visualisations are succesfully completed for this comparison.
 
+Below, the expected tree for small-example with asymmetric mode.
 ```
-$ tree analysis/
-analysis/
-└── small-example
-    ├── 1-cluster-consensus
-    │   ├── cons.longshort.r1.fastq
-    │   ├── cons.longshort.r2.fastq
-    │   ├── cons.shortlong.r1.fastq
-    │   ├── cons.shortlong.r2.fastq
-    │   ├── longshort.cluster
-    │   ├── merged.r1.fastq
-    │   ├── merged.r2.fastq
-    │   └── shortlong.cluster
-    ├── 2-match-reads
-    │   ├── clustered.r1.fastq
-    │   ├── clustered.r2.fastq
-    │   ├── master-barcode-cid.txt
-    │   ├── orphan.fastq
-    │   ├── problematic_multiple.interleaved.fastq
-    │   └── problematic_samesame.interleaved.fastq
-    ├── 3-generate-fragment-lib
-    │   ├── barcode-allele.tsv
-    │   ├── barcode-variant-table.tsv
-    │   ├── collapsed-fragments.bam
-    │   ├── collapsed-fragments.bam.bai
-    │   ├── trimmed.clustered.r1.fastq
-    │   └── trimmed.clustered.r2.fastq
-    ├── 4-symmetric-barcode-quantification
-    │   ├── 481.bam
-    │   ├── 481.sorted.bam
-    │   ├── 481.sorted.bam.bai
-    │   ├── lib.bam
-    │   ├── lib.sorted.bam
-    │   ├── lib.sorted.bam.bai
-    │   ├── startposcounts.481.txt
-    │   └── startposcounts.lib.txt
-    └── 5-longread
-        └── longread-counts.txt
+$ tree small-example/
+├── 1-cluster-consensus
+│   ├── asym.cons.longshort.r1.fastq
+│   ├── asym.cons.longshort.r2.fastq
+│   ├── asym.cons.shortlong.r1.fastq
+│   ├── asym.cons.shortlong.r2.fastq
+│   ├── asym.longshort.cluster
+│   ├── asym.merged.r1.fastq
+│   ├── asym.merged.r2.fastq
+│   └── asym.shortlong.cluster
+├── 2-match-reads
+│   ├── asym.clustered.r1.fastq
+│   ├── asym.clustered.r2.fastq
+│   ├── asym.master-barcode-cid.txt
+│   ├── asym.orphan.fastq
+│   ├── asym.problematic_multiple.interleaved.fastq
+│   └── asym.problematic_samesame.interleaved.fastq
+├── 3-generate-fragment-lib
+│   ├── asym.barcode-allele.tsv
+│   ├── asym.barcode-variant-table.tsv
+│   ├── asym.collapsed-fragments.bam
+│   ├── asym.collapsed-fragments.bam.bai
+│   ├── asym.trimmed.clustered.r1.fastq
+│   ├── asym.trimmed.clustered.r2.fastq
+│   ├── pb.barcode-allele.tsv ### Pipeline was run second time to generate Pacbio based fies
+│   ├── pb.barcode-variant-table.tsv ### Pipeline was run second time to generate Pacbio based fies
+│   ├── pb.collapsed-fragments.bam ### Pipeline was run second time to generate Pacbio based fies
+│   ├── pb.collapsed-fragments.bam.bai ### Pipeline was run second time to generate Pacbio based fies
+│   └── pb.fasta
+├── 4-symmetric-barcode-quantification
+│   ├── 481.bam
+│   ├── 481.vis-info
+│   ├── 482.bam
+│   ├── 482.vis-info
+│   ├── 483.bam
+│   ├── 483.vis-info
+│   ├── lib.bam
+│   ├── lib.vis-info
+│   ├── startposcounts.481.txt
+│   ├── startposcounts.482.txt
+│   ├── startposcounts.483.txt
+│   └── startposcounts.lib.txt
+├── 5-bi-allelic-comparisons
+│   ├── comp_a.result-table.txt
+│   ├── comp_b.result-table.txt
+│   ├── hg19.fa.fai -> /home/tmorova/tools/hg19.fa.fai
+│   ├── hg19.genome
+│   └── tmp
+└── 6-vis
+    └── comp_a
+        ├── rs10457185_chr6-109322477-G-C.REF.bedGraph
+        ├── rs10457185_chr6-109322477-G-C.VAR.bedGraph
+        ├── rs2273668_chr6-109323519-G-T.REF.bedGraph
+        ├── rs2273668_chr6-109323519-G-T.VAR.bedGraph
+        ├── rs75675305_chr6-109324353-T-C.REF.bedGraph
+        ├── rs75675305_chr6-109324353-T-C.VAR.bedGraph
+        ├── rs7761290_chr6-109326621-T-G.REF.bedGraph
+        ├── rs7761290_chr6-109326621-T-G.VAR.bedGraph
+        └── vis-done
 ```
-## Visualisation
-Lorem ipsum
+
+
 
 ## Annotation file for RSids.
 5th step of our pipeline calculates bi-allelic activity of each SNP with our novel NBR method. To include RSid (rsXXX) for the events our analysis code requires annotation file which is consisted two column such as 1-base genomic position with chr:pos (**no chr**) and RS snp id (rsXXX). We shared dbsnp150 common VCF annotation for hg19/grch37 and grch38 genomes in our repository. But any user specific VCF could be used for this procedure if other annotation is neccasary.
@@ -210,6 +219,9 @@ $head dbsnp150.grch38.snp
 1:11063 rs561109771
 1:13110 rs540538026
 ```
+
+## Visualisation
+6th step of our pipeline generates two separate bedGraph files for WT and VAR allales all SNPs which passes minimum enhancer fragment support threshold (Default 15). These files can then be visualised with genome browsers that are compatible with BedGraph format. Our publication's figure 2C was generated by saving 15kb window of target SNPs using the BedGraph output generated by our pipeline. 
 
 ## Publication
 TBD
