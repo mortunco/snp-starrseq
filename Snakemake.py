@@ -18,7 +18,7 @@ else: ### means this is an asymmetrical read based run.
     if config["longread_validation"] == "" or "longread_validation" not in config:
       config["longread_validation"]== ""
       print(f'Reconstructed fragment confirmation with respect to Pacbio CCS wont be executed.')
-    
+
 def get_replicates(wildcards):
   if list(config["fragment_retreival"].keys())[0] == "pb":
     return(config["fragment_retreival"]["pb"]["reads"])
@@ -200,8 +200,8 @@ rule asym_pre_collapse_trim:
 
 rule asym_collapse_fragments:
   input:
-    trim_r1=temp("analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r1.fastq"),
-    trim_r2=temp("analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r2.fastq"),
+    trim_r1="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r1.fastq",
+    trim_r2="analysis/{run_name}/3-generate-fragment-lib/asym.trimmed.clustered.r2.fastq",
   output:
     collapsed=temp("analysis/{run_name}/3-generate-fragment-lib/asym.collapsed-fragments.fastq")
   conda: 

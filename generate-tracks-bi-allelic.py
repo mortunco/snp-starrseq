@@ -33,8 +33,7 @@ def generate_bedgraph(index_event, event_type, snpid,chromsizes,event,output_dir
 
 args = parser.parse_args()
 output_dir = args.output_dir
-#  output_dir = "/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/temp"
-pybed.helpers.set_tempdir("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/temp")
+pybed.helpers.set_tempdir(output_dir)
 
 # Barcode allale file containts fragment index to SNP. Type column is either 1 for WT , 2 for VAR 
 # start_aln_UMI   fragment_name   mutation        type
@@ -43,7 +42,6 @@ pybed.helpers.set_tempdir("/groups/lackgrp/projects/dev-snpstarrseq-pipeline/ana
 # chr6:109321555-CAACAC   GTGTCATTGACAACATTTTAGTTG        chr6;109321800;T;C      1
 # chr6:109321556-GAACGT   ACGTTTAATCTGCACATTTAGTTC        chr6;109321800;T;C      1
 index_event=args.barcode_allele
-# index_event="/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/3-generate-fragment-lib/asym.barcode-allele.tsv"
 index_event=pd.read_table(index_event,sep="\t",header=0)
 index_event=index_event.drop("fragment_name",axis=1)
 
@@ -54,7 +52,6 @@ index_event=index_event.drop("fragment_name",axis=1)
 # rs75675305      chr6;109324353;T;C      50      13      1893    537     0.13105806668347084     0.532414709954525       0.7074774689897501  0.37524607180730757     0.7074774689897501
 # rs7761290       chr6;109326621;T;G      40      8       2979    267     -0.6817584084935364     0.3095160694834158      0.19383573682018126 -1.2993153261065467     0.3134894619564954
 result_table=args.result_table
-# result_table ="/groups/lackgrp/projects/dev-snpstarrseq-pipeline/yi-results-48/yi-merged-result-final/raw_results_merged_48h.txt"
 result_table=pd.read_table(result_table,sep="\t",header=0)
 
 ### remove all the event/barcodes unrealted to our event of interest
@@ -62,7 +59,7 @@ index_event=index_event[index_event["mutation"].isin(result_table["event"])]
 
 ### get multiple vis info files and concatanate them.
 input_list= args.input_vis_file.split(",")
-# input_list="/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/4-symmetric-barcode-quantification/SNPR1_48.vis-info,/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/4-symmetric-barcode-quantification/SNPR2_48.vis-info,/groups/lackgrp/projects/dev-snpstarrseq-pipeline/analysis/full-data-publication/4-symmetric-barcode-quantification/SNPR3_48.vis-info".split(",")
+
 vis_info = []
 for filename in input_list:
     vis_info.append(pd.read_table(filename,sep="\t",names=["index","fragmentname","readname","chrid","start","end"]))

@@ -1,11 +1,10 @@
 # Table of contents
 1. [Installation](#installation)
-2. [Running Example Pipeline](#running-pamir-example)
-3. [Configuration](#configuration)
-4. [Output File Definitions](#output-file-definitions)
-5. [Visualisation](#visualisation)
-6. [Publications](#publication)
-7. [Contant and Support](#contant-and-support)
+2. [Running Example Pipeline](#running-small-example)
+3. [Configuration and Outputs](#configuration-and-outputs)
+4. [Visualisation](#visualisation)
+5. [Publications](#publication)
+6. [Contant and Support](#contant-and-support)
 
 ## Installation
 
@@ -100,42 +99,49 @@ conda create -c bioconda -n snakemake snakemake_env
 ```
 
 ## Running Small Example
-### Dry run to test & Run the small test data analysis 
-```
+### Dry run to test & Run the small test data analysis
+We generated a small example dataset and corresponding configuration file (config/config.small-example.yaml) to familirize our users with our pipeline. This configuration file contains required parameters to run full pipeline in asymmetric settings. For sake of simplicity, we incorporated only single sample but defined as different samples in the configuration.
+
+``` 
+## Download small data set 
+cd test/raw-data # go to the test directory that we created initially.
+wget https://figshare.com/ndownloader/files/31792508?private_link=19c320738a7e3fbc2408 -O data.tar.gz
+tar -xvf data.tar.gz
+cd ..
+
+## activate preferred snakemake env
 conda activate snakemake_env 
-cd go/to/your/test
+## run the pipeline
 snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfile code/snp-starrseq/config/config.small-example.yaml -p -n
 snakemake --snakefile code/snp-starrseq/Snakemake.py -j5 --use-conda --configfile code/snp-starrseq/config/config.small-example.yaml -p
-
 ```
-## Configuration
-Our pipeline needs a config file for execution. It is recommended to create a separate config file for each analysis for reproducibility. Example config file shared in the `config/config.small-example.yaml` with descriptions. Manuscript data could be reproduced by `config/full-calibstrict.yaml`. Mandatory/optional fields are also referred in the `config/small-example.yaml`.
 
+## Configuration and Outputs
+Our pipeline needs a config file for execution. It is recommended to create a separate config file for each analysis for reproducibility. Example config file shared in the `config/config.small-example.yaml` with descriptions. Parameters of the manuscript data is in the `config/full-calibstrict.yaml`. Mandatory/optional fields are also referred in the `config/small-example.yaml`.
 
-## Output File Definitions
 Our basic file structure is as follows. There are 4 main steps;
-- In step 1, we cluster and generate consensus sequences from asymmetric reads.
-- - asym.shortlong/shortlong.cluster --> Calib cluster output from independent asymmteric sequnecing runs which contain cluster number and read information.
-- - asym.cons.longshort/shortlong.rX.fastq --> Calib consensus output from independent asymmteric sequnecing runs which contain consensus sequence of all clusters which =>2 members.
-- - asym.merged.rX.fastq --> We merge longshort/shortlongs r1 and r2 in two separate files for `2-read-matching` step.
-- In step 2, we match long mates of the two asymmeric runs using 24 bp barcodes. 
-- - (5' ~ 3bp UMI - 9 bp Fragment Sequence - ... - 9 bp Fragment Sequence - 3bp UMI ~ 3')
-- - asym.master-barcode-cid.txt --> Master table that contains information of each unique fragment. There are possible three outcomes, clustered means fragments are present in both (longshort/shortlong) runs. Orphan means fragment is found only in single run (one of longshort/shortlong). Problematic ones such as multiple and same same were cases that same barcodes was found by different fragments in the single run. In our benchmark this rate was <%1 therefore, we dump those reads to a file for further investigation.
-- In step 3, we collapsed matched long asymmetric reads and retreive enhancer fragments.
-- - asym/pb.collapsed-fragments.bam/fastq --> As a result of the collapsing process, this file contains sucessfully collapsed fragments reference genome alignment and reads. If pacbio method is pb prefix is used.
-- - asym/pb.barcode-variant-table.tsv --> This file contains all mismatches/indels on the collapsed fragments with respect to reference genome. If pacbio method is used. pb prefix is used.
-- - asym/pb.barcode-allele.tsv --> From the previous file, we annotate each collapsed fragment whether they support alternative allele and WT allele. Only SNP events that are located in `capture_bed` bed file were considered. If pacbio method is used. pb prefix is used.
-- In step 4, we quantify barcode counts from symmterical starrseq data. (optional)
-- - samplename[481/lib].bam --> For each symmetric sample, we initially map reads to the reference genome.
-- - samplename[481/lib].vis-info --> File contains enhancer fragment index, enhancer fragment position and supporting symmetrical short read name. This information is required for visualisation process.
-- - startposcounts.samplename[481/lib].txt --> for each file, using the alignment files we generate index (startpos:6bpUMI) for each read and quantify the occurance in the sample. These indexes should be concordant with the indexes from asymmetric section of the analysis.
-- In step 5, we calculate bi-allelic activity of SNPs based on the change in the enhancer fragments. 
-- - comparison.result-table.txt --> Containts output for each different comparison that was inputted in the config file.
-- In step 6, we generate two separate bedgraph files for WT and VAR alleles for those signifcant SNPs in each comparison. 
-- - comp_a/SNPid_chr-pos-ref-alt.WT/VAR.bedGraph --> Each SNP will get a pair of bedGraph files normalized by unique plasmid count.
-- - vis-done --> indicated all visualisations are succesfully completed for this comparison.
+In step 1, we cluster and generate consensus sequences from asymmetric reads.
+- asym.shortlong/shortlong.cluster --> Calib cluster output from independent asymmteric sequnecing runs which contain cluster number and read information.
+- asym.cons.longshort/shortlong.rX.fastq --> Calib consensus output from independent asymmteric sequnecing runs which contain consensus sequence of all clusters which =>2 members.
+- asym.merged.rX.fastq --> We merge longshort/shortlongs r1 and r2 in two separate files for `2-read-matching` step.
+In step 2, we match long mates of the two asymmeric runs using 24 bp barcodes. 
+- (5' ~ 3bp UMI - 9 bp Fragment Sequence - ... - 9 bp Fragment Sequence - 3bp UMI ~ 3')
+- asym.master-barcode-cid.txt --> Master table that contains information of each unique fragment. There are possible three outcomes, clustered means fragments are present in both (longshort/shortlong) runs. Orphan means fragment is found only in single run (one of longshort/shortlong). Problematic ones such as multiple and same same were cases that same barcodes was found by different fragments in the single run. In our benchmark this rate was <%1 therefore, we dump those reads to a file for further investigation.
+In step 3, we collapsed matched long asymmetric reads and retreive enhancer fragments.
+- asym/pb.collapsed-fragments.bam/fastq --> As a result of the collapsing process, this file contains sucessfully collapsed fragments reference genome alignment and reads. If pacbio method is pb prefix is used.
+- asym/pb.barcode-variant-table.tsv --> This file contains all mismatches/indels on the collapsed fragments with respect to reference genome. If pacbio method is used. pb prefix is used.
+- asym/pb.barcode-allele.tsv --> From the previous file, we annotate each collapsed fragment whether they support alternative allele and WT allele. Only SNP events that are located in `capture_bed` bed file were considered. If pacbio method is used. pb prefix is used.
+In step 4, we quantify barcode counts from symmterical starrseq data. (optional)
+- samplename[481/lib].bam --> For each symmetric sample, we initially map reads to the reference genome.
+- samplename[481/lib].vis-info --> File contains enhancer fragment index, enhancer fragment position and supporting symmetrical short read name. This information is required for visualisation process.
+- startposcounts.samplename[481/lib].txt --> for each file, using the alignment files we generate index (startpos:6bpUMI) for each read and quantify the occurance in the sample. These indexes should be concordant with the indexes from asymmetric section of the analysis.
+In step 5, we calculate bi-allelic activity of SNPs based on the change in the enhancer fragments. 
+- comparison.result-table.txt --> Containts output for each different comparison that was inputted in the config file.
+In step 6, we generate two separate bedgraph files for WT and VAR alleles for those signifcant SNPs in each comparison. 
+- comp_a/SNPid_chr-pos-ref-alt.WT/VAR.bedGraph --> Each SNP will get a pair of bedGraph files normalized by unique plasmid count.
+- vis-done --> indicated all visualisations are succesfully completed for this comparison.
 
-Below, the expected tree for small-example with asymmetric mode.
+Below, the expected output directory tree for small-example with asymmetric mode.
 ```
 $ tree small-example/
 ├── 1-cluster-consensus
@@ -198,8 +204,6 @@ $ tree small-example/
         └── vis-done
 ```
 
-
-
 ## Annotation file for RSids.
 5th step of our pipeline calculates bi-allelic activity of each SNP with our novel NBR method. To include RSid (rsXXX) for the events our analysis code requires annotation file which is consisted two column such as 1-base genomic position with chr:pos (**no chr**) and RS snp id (rsXXX). We shared dbsnp150 common VCF annotation for hg19/grch37 and grch38 genomes in our repository. But any user specific VCF could be used for this procedure if other annotation is neccasary.
 
@@ -224,7 +228,8 @@ $head dbsnp150.grch38.snp
 6th step of our pipeline generates two separate bedGraph files for WT and VAR allales all SNPs which passes minimum enhancer fragment support threshold (Default 15). These files can then be visualised with genome browsers that are compatible with BedGraph format. Our publication's figure 2C was generated by saving 15kb window of target SNPs using the BedGraph output generated by our pipeline. 
 
 ## Publication
-TBD
+If you have used or influenced by our method please cite our paper --> DOI/Citation.
+
 ## Contant and Support
-Lorem Ipsum
+Feel free to open an issue on our issue section.
 
