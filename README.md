@@ -4,7 +4,7 @@
 3. [Configuration and Outputs](#configuration-and-outputs)
 4. [Visualisation](#visualisation)
 5. [Publications](#publication)
-6. [Contant and Support](#contant-and-support)
+6. [Contact and Support](#contant-and-support)
 
 ## Installation
 
@@ -14,16 +14,15 @@ mkdir test && mkdir test/code && mkdir test/analysis && mkdir test/raw-data && m
 cd test/code ## and enter the code directory under test
 ```
 
-### 2. Clone following repositories
+### 2. Create a new environment for snakemake (version >= 6.4.1) You can skip this step if you already have one.
+```
+conda create -c bioconda -n snakemake snakemake_env
+```
+
+### 3. Clone following repositories
 ```
 git clone https://github.com/mortunco/snp-starrseq.git
 git clone -b v0.3.4 https://github.com/vpc-ccg/calib.git
-```
-
-### 3. Copy example data to raw-data and untar 
-```
-cp data/small-realdata.tar.gz ../../raw-data/
-tar xvf small-realdata.tar.gz
 ```
 
 ### 4. Create environment for calib
@@ -91,11 +90,6 @@ Calib's paramters arguments:
   -m  --min-reads-per-cluster    (positive integer;
                                     default: 2)
   -h  --help
-```
-
-### Create a new environment for snakemake (version >= 6.4.1) You can skip this step if you have one.
-```
-conda create -c bioconda -n snakemake snakemake_env
 ```
 
 ## Running Small Example
