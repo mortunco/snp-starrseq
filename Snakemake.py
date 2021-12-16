@@ -231,44 +231,35 @@ rule asym_map_collapsed_to_ref:
     bwa mem -t{threads} {params} {input} | samtools view -Sb | samtools sort -@{threads} -m10G> {output} && samtools index {output} 2> {log}
     """
 
-rule pacbio_longread_css:
+rule pacbio_extract_reads:
   input:
     get_replicates
   output:
-    "analysis/{run_name}/3-generate-fragment-lib/pb.bam"
-  conda:
-    "env/env.pacbio.yaml"
-  params:
-    config["smrttools_full_path"]
-  shell:
-    """
-    {params} --min-length 100 {input} {output}
-    """
-rule pacbio_extract_reads:
-  input:
-    "analysis/{run_name}/3-generate-fragment-lib/pb.bam"
-  output:
     temp("analysis/{run_name}/3-generate-fragment-lib/pb.fasta")
   conda:
-    "env/env.pacbio.yaml"
+    "env/env.mapping.yaml"
   shell:
     """
     samtools fastq -@10 -n {input} |  awk 'NR % 4 == 1 || NR % 4 == 2' | sed 's/@/>/g' -  > {output}
     """
+
 rule pacbio_fasta_split:
   input:
     "analysis/{run_name}/3-generate-fragment-lib/pb.fasta"
   output:
-    temp(expand("analysis/{{run_name}}/3-generate-fragment-lib/pb.fasta{cnt}",cnt=range(config['parts'])))
+    splits=temp(expand("analysis/{{run_name}}/3-generate-fragment-lib/split/pb.part_{cnt}.fasta",cnt=[f"{i:03n}" for i in range(1,11)]))
   conda:
     "env/env.pacbio.yaml"
+  params:
+    config["parts"]
   shell:
     """
-    split {input} pb.fasta -d -a1 -n10
+    seqkit split2 -p {params} -O {output.split_dir} {input}
+    #split {input} analysis/{wildcards.run_name}/3-generate-fragment-lib/pb.fasta -d -a1 -n10
     """
 rule pacbio_mrsfast_index:
   input:
-    "analysis/{run_name}/3-generate-fragment-lib/pb.fasta{cnt}"
+    "analysis/{run_name}/3-generate-fragment-lib/split/pb.part_{cnt}.fasta"
   output:
     temp("analysis/{run_name}/3-generate-fragment-lib/pb.sam{cnt}")
   conda:
@@ -282,37 +273,39 @@ rule pacbio_mrsfast_index:
     """
 rule pacbio_merge_extract:
   input:
-    split=expand("analysis/{{run_name}}/3-generate-fragment-lib/pb.sam{cnt}",cnt=range(config['parts'])),
+    split=expand("analysis/{{run_name}}/3-generate-fragment-lib/pb.sam{cnt}",cnt=[f"{i:03n}" for i in range(1,11)]),
     full="analysis/{run_name}/3-generate-fragment-lib/pb.fasta"
   output:
-    merged=temp("analysis/{run_name}/3-generate-fragment-lib/pb.merged.bam"),
-    extract="analysis/{run_name}/3-generate-fragment-lib/withoutadapter.fasta"
+    merged=temp("analysis/{run_name}/3-generate-fragment-lib/pb.merged.sam"),
+    extract=temp("analysis/{run_name}/3-generate-fragment-lib/withoutadapter.fasta"),
+    extract2=temp("analysis/{run_name}/3-generate-fragment-lib/withadapter.fasta")
   conda:
-    "env/env.pacbio.yaml"
+    "env/env.mapping.yaml"
   params:
-      param= "-m8G"
   threads:
       16
   shell:
     """
-    samtools merge {output} {input.split} -@ {threads} {params.param}
-    samtools view {output} | python ../sep-read-adapters.py -f {input.full} -s - -a 33 -o analysis/{wildcards.run_name}/3-generate-fragment-lib/pb
+    samtools merge -O SAM -@ {threads} {output.merged} {input.split} 
+    python code/snp-starrseq/sep-read-adapters.py -f {input.full} -s {output.merged} -a 33 -o analysis/{wildcards.run_name}/3-generate-fragment-lib/
     """
 rule pacbio_map_markdup:
   input:
     "analysis/{run_name}/3-generate-fragment-lib/withoutadapter.fasta"
   output:
-    temp=temp("analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.fasta"),
+    temp=temp("analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.bam"),
     temp0=temp("analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.all0dir.sam"),
     temp0bam=temp("analysis/{run_name}/3-generate-fragment-lib/temp.withoutadapter.all0dir.bam"),
     final="analysis/{run_name}/3-generate-fragment-lib/pb.collapsed-fragments.bam",
   conda:
     "env/env.pacbio.yaml"
+  params:
+    config["bwa_ref"]
   shell:
     """
-    minimap2 -t20 -ax asm20 -c ~/tools/hg19.fa {input} | samtools view -Sb | samtools sort -@10 -m10G > {output.temp};
-    samtools view -F 2052 {output.temp} | awk 'BEGIN {{OFS="\t"}} {{print $1,0,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16}}' > {output.temp0};
-    cat <(samtools view -H {output.temp0}) {output.temp0} | samtools view -Sb - | samtools sort -@10 -m10G > {output.temp0bam};
+    minimap2 -t20 -ax asm20 --MD -c {params} {input} | samtools view -Sb | samtools sort -@10 -m10G > {output.temp};
+    samtools view -F 2052 {output.temp} | awk 'BEGIN {{OFS="\t"}} {{print $1,0,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22}}' > {output.temp0};
+    cat <(samtools view -H {output.temp}) {output.temp0} | samtools view -Sb - | samtools sort -@10 -m10G > {output.temp0bam};
     picard MarkDuplicates I={output.temp0bam} O={output.final} M=pacbio.markdup.metrics.txt VALIDATION_STRINGENCY=LENIENT;
     samtools index {output.final}
     """
@@ -420,7 +413,9 @@ rule misc_longread_quantification_startpos:
   conda:
     "env/env.mapping.yaml"	
   threads: 16
+  params:
+    capture=config["capture_bed"]
   shell:
     """
-    samtools view -q2 -F2052 {input} | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1 | sort -T . --parallel={threads} | uniq -c  | awk '{{print $1,$2}}' > {output}
+    bedtools intersect -a  {params.capture} -b {input} | samtools view -q10 -F2052 - | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1 | sort -T . --parallel={threads} | uniq -c  | awk '{{print $1,$2}}' > {output}
     """

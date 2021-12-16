@@ -15,20 +15,20 @@ longread_validation: # System path to Pacbio (CCS) long read alingment file. (mu
   "raw-data/small-realdata/longread.bam"
 
 fragment_retreival: # Contains input file information for for enhancer reconstruction from asymmetric reads (Illumina) or Pacbio. NOTE: One of these methods can be used in one run. --> This field is mandatory
-  asym: #"Asym" for asymmetric reads. This mode requires longshort and shortlong fields to be filled.
-    longshort:
-      r1:
-        - "raw-data/small-realdata/sample.longshort.r1.fastq.gz"
-      r2:
-        - "raw-data/small-realdata/sample.longshort.r2.fastq.gz"
-    shortlong:
-      r1:
-        - "raw-data/small-realdata/sample.shortlong.r1.fastq.gz"
-      r2:
-        - "raw-data/small-realdata/sample.shortlong.r2.fastq.gz"
-  # pb: #"pb" for Pacbio is the preferred way for enhancer fragment retreival.
-  #     reads: 
-  #       "/groups/lackgrp/projects/inv-longread-snpstarrseq/raw-data/data2/pb/r64044_20201212_021108/3_C01/m64044_201214_151520.subreads.bam"
+  # asym: #"Asym" for asymmetric reads. This mode requires longshort and shortlong fields to be filled.
+  #   longshort:
+  #     r1:
+  #       - "raw-data/small-realdata/sample.longshort.r1.fastq.gz"
+  #     r2:
+  #       - "raw-data/small-realdata/sample.longshort.r2.fastq.gz"
+  #   shortlong:
+  #     r1:
+  #       - "raw-data/small-realdata/sample.shortlong.r1.fastq.gz"
+  #     r2:
+  #       - "raw-data/small-realdata/sample.shortlong.r2.fastq.gz"
+  pb: #"pb" for Pacbio is the preferred way for enhancer fragment retreival.
+      reads: 
+        "raw-data/small-realdata/longread.subset.bam"
 
 quantification: #Contains the input information for mRNA quantification samples. --> This field is mandatory
   lib: #lib could be used for library sample.
@@ -47,10 +47,10 @@ quantification: #Contains the input information for mRNA quantification samples.
     r2:
       - "raw-data/small-realdata/sample.481.r2.fastq.gz"  
   "483":
-      r1:
-        - "raw-data/small-realdata/sample.481.r1.fastq.gz"
-      r2:
-        - "raw-data/small-realdata/sample.481.r2.fastq.gz"  
+    r1:
+      - "raw-data/small-realdata/sample.481.r1.fastq.gz"
+    r2:
+      - "raw-data/small-realdata/sample.481.r2.fastq.gz"
 
 bi_allelic_comparisons: #contains the design information for the comparisons. --> This field is mandatory
   "comp_a": # comparison name 
