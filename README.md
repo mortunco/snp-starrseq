@@ -99,7 +99,7 @@ We generated a small example dataset and corresponding configuration file (confi
 ``` 
 ## Download small data set 
 cd test/raw-data # go to the test directory that we created initially.
-wget https://figshare.com/ndownloader/files/31792508?private_link=19c320738a7e3fbc2408 -O data.tar.gz
+wget https://figshare.com/ndownloader/files/31851779 -O data.tar.gz
 tar -xvf data.tar.gz
 cd ..
 
@@ -216,6 +216,13 @@ $head dbsnp150.grch38.snp
 1:11012 rs544419019
 1:11063 rs561109771
 1:13110 rs540538026
+```
+
+## Pacbio CCS mode mode
+snpSTARRseq pipeline can take Pacbio CCS reads as an input. To use this mode, our pipeline expect raw Pacbio output(XXX.subreads.bam) from the sequencer to be processed by [SMRT Tools](https://www.pacb.com/support/software-downloads/) 's (release_9.0.0.92188 used in our project) CCS module with default options.
+
+```
+ccs --min-length 100 XX.subreads.bam ccs.out.bam
 ```
 
 ## Visualisation
