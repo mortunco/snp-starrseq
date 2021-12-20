@@ -179,7 +179,7 @@ rule asym_match_reads:
   threads:1
   shell:
     """
-    python code/snp-starrseq/read_id_matcher.py --f {input.r1} --r {input.r2} --p analysis/{wildcards.run_name}/2-match-reads/asym.
+    python code/snp-starrseq/match-barcodes.py --f {input.r1} --r {input.r2} --p analysis/{wildcards.run_name}/2-match-reads/asym.
     """
 
 rule asym_pre_collapse_trim:
@@ -338,7 +338,7 @@ rule create_mutation_database:
   threads:1
   shell:
     """
-    python code/snp-starrseq/dev-segment-variant-matrix.py --bam_input {input.bam} --var_db {input.variant_table} --csv_out {output} --mat_out False --bed_file {params.bed} 2>{log}
+    python code/snp-starrseq/create-barcode-allele.py --bam_input {input.bam} --var_db {input.variant_table} --csv_out {output} --mat_out False --bed_file {params.bed} 2>{log}
     """
 rule mrna_quantification_startpos:
   input:
@@ -356,7 +356,7 @@ rule mrna_quantification_startpos:
   shell:
     """
     bwa mem -t{threads} {params} {input.r1} {input.r2} | samtools view -Sb > {output.bam};
-    samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-directory-paired.py - > {output.vis};
+    samtools view -f2 -F2048 {output.bam} | python code/snp-starrseq/create-umi-paired.py - > {output.vis};
     cut -f 1 {output.vis} | sort -T . --parallel={threads} | uniq -c | awk '{{print $1,$2}}' > {output.countx}
     """
 
@@ -417,5 +417,5 @@ rule misc_longread_quantification_startpos:
     capture=config["capture_bed"]
   shell:
     """
-    bedtools intersect -a  {params.capture} -b {input} | samtools view -q10 -F2052 - | python code/snp-starrseq/create-umi-directory-longread.py | cut -f 1 | sort -T . --parallel={threads} | uniq -c  | awk '{{print $1,$2}}' > {output}
+    bedtools intersect -a  {params.capture} -b {input} | samtools view -q10 -F2052 - | python code/snp-starrseq/create-umi-single.py | cut -f 1 | sort -T . --parallel={threads} | uniq -c  | awk '{{print $1,$2}}' > {output}
     """

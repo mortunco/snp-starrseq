@@ -9,9 +9,8 @@ import numpy
 import pandas as pa
 import argparse
 
-
-
-# required arg
+### We already know which varint belongs to which mutation.
+### This script finds all WT fragments for each VAR allele.
 
 parser = argparse.ArgumentParser()
    
@@ -23,25 +22,11 @@ parser.add_argument('--bed_file', required=True)
 
 args = parser.parse_args()
 
-
-
-
-
 db_file=args.var_db
 bam_file=args.bam_input
 output=args.csv_out
 matrix_output=args.mat_out
 target_region=args.bed_file
-
-
-
-
-# db_file="/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/mutation-database-v2/segment-chr1_10268688_10273174-db.txt"
-# bam_file="/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/mutation-database-v2/segment-chr1_10268688_10273174.bam"
-# output="/groups/lackgrp/projects/inv-mattfreedman-snpstarrseq/analysis/process-asymmetric/mutation-database-v2/segment-chr10_104417350_104419349-matrix.tsv"
-
-
-
 
 print("Creating Dictionaries done")
 mutation_dict={} ### keeps all alleles of same position mutations 
@@ -64,19 +49,12 @@ with open(db_file, 'r') as file_in:
                 mutation_dict[event_chr + ";" + event_pos].append(event_ref+";"+event_alt)
             else:
                 pass
-        #mutation_position.append(event_chr + ";" + event_pos)
-        #mutation_list.append(";".join(temp[4:8]))
-        #mutation_list.append(";".join([event_chr,event_pos,event_ref,event_alt]))
 
-#{'chrX;66765158': ['TGCAGCAGCA;T', 'T;TGCA', 'TGCAGCA;T', 'TGCAGCAGCAGCA;T', 'T;TGCAGCA', 'T;TGCAGCAGCA', 'TGCA;T', 'TGCAGCAGCAGCAGCAGCAGCA;T', 'TGCAGCAGCAGCAGCAGCAGCAGCA;T', 'T;TGCAGCAGCAGCA']
 blacklist_mutations=[]
 for event_position in list(mutation_dict.keys()):
     if len(mutation_dict[event_position]) >=3:
         mutation_dict.pop(event_position,None)
 
-# for i in blacklist_mutations:
-#     mutation_dict.pop(i,None)
-#mutation_position = [i for i in mutation_position if i not in blacklist_mutations]
 mutation_position= list(mutation_dict.keys())
 print("Filtering Blacklist done")
 mydf=list()
@@ -93,7 +71,6 @@ with open(target_region, 'r') as file_in:
             pileupcolumn.set_min_base_quality(1) ### This sets minimum quality score of pileup. We had problems in past our variants are going way simply becasue the BASE quality was too low and mpileup discards it.
             if pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1) in mutation_position:#["chr10;104418948","chr10;104418946","chr10;104418945"]:     
                 for allele in mutation_dict[pileupcolumn.reference_name + ";" + str(pileupcolumn.pos+1)]: ### we are doing this because some events are multi alallic therefore i have to go through all of them.
-                    #print ("\ncoverage at base %s = %s" % (pileupcolumn.pos, pileupcolumn.n))
                     for pileupread in pileupcolumn.pileups:
                         # dont delete this this is required for inspection if stuff goes bad
                         # print("querried allele : {} | qname: {} | read allele : {} |qpos : {} | pos : {} | indel : {} | is_del : {} | is_refskip : {} ".format(
