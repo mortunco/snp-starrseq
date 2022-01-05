@@ -810,6 +810,10 @@ mydf %>% filter(event %in% common_events_nom & pvalue <= 0.05 ) %>% group_by(eve
 
 mydf %>% filter(padj <= 0.05) %>% pull(event) %>% unique -> common_events_FDR
 mydf %>% filter(event %in% common_events_FDR & padj <= 0.05 ) %>% group_by(event) %>% slice_max(abs(alt_effect)) %>% arrange(desc(abs(alt_effect))) -> temp
+
+library(googlesheets4)
+#sheet_write(data=mydf,ss = gs4_create("snpstarrseq-NBR-results-all-times"))
+
 ```
 
 ### 
